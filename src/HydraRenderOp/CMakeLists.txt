@@ -1,0 +1,21 @@
+set(PLUGIN_NAME HydraRender)
+
+add_library(${PLUGIN_NAME} SHARED
+    HydraRender.cpp)
+
+target_include_directories(${PLUGIN_NAME}
+    PRIVATE
+    ${NUKE_INCLUDE_DIRS}
+    ${USD_ROOT}/include)
+
+target_link_libraries(${PLUGIN_NAME}
+    ${NUKE_DDIMAGE_LIBRARY}
+    arch hd hdx)
+
+set_target_properties(${PLUGIN_NAME}
+    PROPERTIES
+    PREFIX ""
+    INSTALL_RPATH_USE_LINK_PATH True)
+
+install(TARGETS ${PLUGIN_NAME}
+    DESTINATION plugins)
