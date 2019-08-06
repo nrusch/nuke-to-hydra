@@ -22,18 +22,50 @@ static const char* const CLASS = "HydraRender";
 static const char* const HELP = "Renders a Nuke 3D scene using Hydra.";
 
 
+namespace {
+
+bool g_pluginRegistryInitialized = false;
+static TfTokenVector g_pluginIds;
+static std::vector<std::string> g_pluginKnobStrings;
+
+
+static void
+scanRendererPlugins()
+{
+    if (!g_pluginRegistryInitialized) {
+        HfPluginDescVector plugins;
+        HdxRendererPluginRegistry::GetInstance().GetPluginDescs(&plugins);
+
+        g_pluginIds.reserve(plugins.size());
+        g_pluginKnobStrings.reserve(plugins.size());
+        std::ostringstream buf;
+
+        for (const auto& pluginDesc : plugins)
+        {
+            g_pluginIds.push_back(pluginDesc.id);
+            buf << pluginDesc.id.GetString() << '\t' << pluginDesc.displayName;
+            g_pluginKnobStrings.push_back(buf.str());
+            buf.str(std::string());
+            buf.clear();
+        }
+
+        g_pluginRegistryInitialized = true;
+    }
+}
+
+}  // namespace
+
+
 class HydraRender : public Iop {
 
 public:
     HydraRender(Node* node) : Iop(node)
     {
+        scanRendererPlugins();
+
         inputs(2);
+    }
 
-        const auto& pluginRegistry = HdxRendererPluginRegistry::GetInstance();
-
-        //.GetRendererPlugin(_rendererDesc.rendererName);
-        //auto* renderDelegate = _rendererPlugin->CreateRenderDelegate();
-        //_renderIndex = HdRenderIndex::New(renderDelegate);
     }
 
     const char* input_label(int index, char*) const
