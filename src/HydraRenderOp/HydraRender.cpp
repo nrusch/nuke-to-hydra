@@ -3,14 +3,24 @@
 //
 // Renders a Nuke 3D scene using Hydra
 //
-#include <pxr/pxr.h>
-#include <pxr/imaging/hdx/rendererPluginRegistry.h>
+#include <GL/glew.h>
 
-#include "DDImage/CameraOp.h"
-#include "DDImage/Iop.h"
-#include "DDImage/Knobs.h"
-#include "DDImage/Row.h"
-#include "DDImage/Scene.h"
+#include <pxr/pxr.h>
+#include <pxr/imaging/hd/renderIndex.h>
+#include <pxr/imaging/hd/renderDelegate.h>
+#include <pxr/imaging/hd/engine.h>
+#include <pxr/imaging/hdx/rendererPlugin.h>
+#include <pxr/imaging/hdx/rendererPluginRegistry.h>
+#include <pxr/imaging/hdx/taskController.h>
+#include <pxr/imaging/hdx/tokens.h>
+
+#include <DDImage/CameraOp.h>
+#include <DDImage/Enumeration_KnobI.h>
+#include <DDImage/Iop.h>
+#include <DDImage/Knobs.h>
+#include <DDImage/Row.h>
+#include <DDImage/Scene.h>
+#include <DDImage/Thread.h>
 
 
 using namespace DD::Image;
@@ -59,13 +69,19 @@ scanRendererPlugins()
 class HydraRender : public Iop {
 
 public:
-    HydraRender(Node* node) : Iop(node)
+    HydraRender(Node* node)
+        : Iop(node),
+          _primCollection(TfToken("HydraNukeGeo"),
+                          HdReprSelector(HdReprTokens->refined))
     {
         scanRendererPlugins();
 
         inputs(2);
     }
 
+    ~HydraRender()
+    {
+        destroyRenderer();
     }
 
     const char* input_label(int index, char*) const
@@ -104,10 +120,61 @@ public:
 
     virtual void knobs(Knob_Callback f)
     {
+        Knob* k = Enumeration_knob(f, &_selectedRenderer, 0, "renderer");
+        if (f.makeKnobs()) {
+            k->enumerationKnob()->menu(g_pluginKnobStrings);
+        }
+    }
+
+    // TODO: Wrap this creation/deletion stuff in a struct
+    void initRenderer()
+    {
+        _rendererPlugin = HdxRendererPluginRegistry::GetInstance().GetRendererPlugin(
+            g_pluginIds[_selectedRenderer]);
+        _renderDelegate = _rendererPlugin->CreateRenderDelegate();
+        _renderIndex = HdRenderIndex::New(_renderDelegate);
+
+        _taskController = new HdxTaskController(
+            _renderIndex, SdfPath("/HydraNuke_TaskController"));
+        _taskController->SetCollection(_primCollection);
+
+        _rendererInitialized = true;
+    }
+
+    void destroyRenderer()
+    {
+        if (_taskController != nullptr) {
+            delete _taskController;
+            _taskController = nullptr;
+        }
+
+        if (_renderIndex != nullptr) {
+            delete _renderIndex;
+            _renderIndex = nullptr;
+        }
+
+        if (_rendererPlugin != nullptr) {
+            if (_renderDelegate != nullptr) {
+                _rendererPlugin->DeleteRenderDelegate(_renderDelegate);
+                _renderDelegate = nullptr;
+            }
+
+            HdxRendererPluginRegistry::GetInstance().ReleasePlugin(_rendererPlugin);
+            _rendererPlugin = nullptr;
+        }
+
+        _rendererInitialized = false;
     }
 
     void _validate(bool for_real)
     {
+        if (!_rendererInitialized) {
+            initRenderer();
+        }
+
+        HdxRenderTaskParams renderTaskParams;
+        _taskController->SetRenderParams(renderTaskParams);
+
         // copy_info(0);
         set_out_channels(Mask_RGBA);
     }
@@ -124,6 +191,20 @@ public:
     const char* Class() const { return CLASS; }
     const char* node_help() const { return HELP; }
     static const Iop::Description desc;
+
+private:
+    HdRenderIndex* _renderIndex = nullptr;
+    HdxRendererPlugin* _rendererPlugin = nullptr;  // Ref-counted by Hydra
+    HdRenderDelegate* _renderDelegate = nullptr;
+
+    HdEngine _engine;
+    HdxTaskController* _taskController = nullptr;
+    HdRprimCollection _primCollection;
+
+    bool _rendererInitialized = false;
+
+    // Knob storage
+    int _selectedRenderer = 0;
 };
 
 static Iop* build(Node* node) { return new HydraRender(node); }
