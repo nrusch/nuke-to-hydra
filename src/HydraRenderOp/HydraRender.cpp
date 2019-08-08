@@ -42,15 +42,16 @@ static const char* const HELP = "Renders a Nuke 3D scene using Hydra.";
 
 namespace {
 
-bool g_pluginRegistryInitialized = false;
 static TfTokenVector g_pluginIds;
 static std::vector<std::string> g_pluginKnobStrings;
 
 
 static void
-scanRendererPlugins()
+_scanRendererPlugins()
 {
-    if (!g_pluginRegistryInitialized) {
+    static std::once_flag pluginInitFlag;
+
+    std::call_once(pluginInitFlag, [] {
         HfPluginDescVector plugins;
         HdxRendererPluginRegistry::GetInstance().GetPluginDescs(&plugins);
 
@@ -76,8 +77,7 @@ scanRendererPlugins()
         TfDebug::Enable(HD_TASK_ADDED);
         // TfDebug::Enable(HD_ENGINE_PHASE_INFO);
 
-        g_pluginRegistryInitialized = true;
-    }
+    });
 }
 
 }  // namespace
@@ -92,7 +92,7 @@ public:
                           HdReprSelector(HdReprTokens->refined)),
           _usdFilePath("")
     {
-        scanRendererPlugins();
+        _scanRendererPlugins();
 
         inputs(2);
     }
