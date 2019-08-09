@@ -10,7 +10,7 @@ target_include_directories(${PLUGIN_NAME}
 
 target_link_libraries(${PLUGIN_NAME}
     ${NUKE_DDIMAGE_LIBRARY}
-    arch hd hdx)
+    arch hd hdx usdImaging)
 
 set_target_properties(${PLUGIN_NAME}
     PROPERTIES
