@@ -6,6 +6,10 @@
 #include <GL/glew.h>
 
 #include <pxr/pxr.h>
+
+#include <pxr/base/gf/camera.h>
+#include <pxr/base/gf/frustum.h>
+
 #include <pxr/usd/usdGeom/metrics.h>
 #include <pxr/usd/usdGeom/xform.h>
 
@@ -225,9 +229,6 @@ public:
     {
         std::cerr << "HydraRender::_validate" << std::endl;
 
-        CameraOp* cam = dynamic_cast<CameraOp*>(Op::input(1));
-        cam->validate(for_real);
-
         info_.full_size_format(*_formats.fullSizeFormat());
         info_.format(*_formats.format());
         info_.channels(Mask_RGBA);
@@ -240,7 +241,32 @@ public:
         GfVec4d viewport(0, 0, info_.w(), info_.h());
         _taskController->SetRenderViewport(viewport);
 
+        // Set up Gf camera from camera input
+        CameraOp* cam = dynamic_cast<CameraOp*>(Op::input(1));
+        cam->validate(for_real);
 
+        const Matrix4& nukeMatrix = cam->matrix();
+        GfMatrix4d camGfMatrix;
+        std::copy(nukeMatrix.array(), nukeMatrix.array() + 16, camGfMatrix.data());
+
+        // TODO:
+        // - Support horiz/vertical aperture offset (need to convert Nuke
+        // normalized to USD physical units?)
+        // - Support focus distance, fstop
+        GfCamera gfCamera(
+            camGfMatrix,
+            cam->projection_mode() == CameraOp::LENS_ORTHOGRAPHIC ?
+                GfCamera::Orthographic : GfCamera::Perspective,
+            cam->film_width(),  // horizontalAperture
+            cam->film_height(),  // verticalAperture
+            0.0, 0.0,  // horizontal/vertical aperture offsets
+            cam->focal_length(),  // focalLength
+            GfRange1f(cam->Near(), cam->Far())  // clippingRange
+        );
+
+        GfFrustum frustum = gfCamera.GetFrustum();
+        _taskController->SetFreeCameraMatrices(frustum.ComputeViewMatrix(),
+                                               frustum.ComputeProjectionMatrix());
 
         _needRender = true;
     }
