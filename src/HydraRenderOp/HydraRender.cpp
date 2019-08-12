@@ -34,6 +34,8 @@
 #include <DDImage/Scene.h>
 #include <DDImage/Thread.h>
 
+#include <hdNuke/sceneDelegate.h>
+
 
 using namespace DD::Image;
 
@@ -111,7 +113,7 @@ public:
         switch (index)
         {
             case 0:
-                return "Scene/Geo";
+                return "Scene";
             case 1:
                 return "Camera";
         }
@@ -131,8 +133,7 @@ public:
         switch (index)
         {
             case 0:
-                return (dynamic_cast<Scene*>(op) != nullptr
-                        or dynamic_cast<GeoOp*>(op) != nullptr);
+                return dynamic_cast<GeoOp*>(op) != nullptr;
             case 1:
                 return dynamic_cast<CameraOp*>(op) != nullptr;
         }
@@ -144,6 +145,9 @@ public:
     {
         std::cerr << "HydraRender::append" << std::endl;
         input1().append(hash);
+        if (GeoOp* geoOp = dynamic_cast<GeoOp*>(input(0))) {
+            geoOp->append(hash);
+        }
     }
 
     virtual void knobs(Knob_Callback f)
@@ -283,7 +287,9 @@ public:
                 std::cerr << "HydraRender::engine"  << std::endl;
                 std::cerr << "  channels: " << channels << std::endl;
 
+                // XXX: For building/testing
                 loadUSDStage();
+                loadNukeScene();
 
                 auto tasks = _taskController->GetRenderingTasks();
                 _engine.Execute(_renderIndex, &tasks);
@@ -345,6 +351,19 @@ public:
     static const Iop::Description desc;
 
 protected:
+    void loadNukeScene()
+    {
+        if (_nukeDelegate != nullptr) {
+            return;
+        }
+
+        static SdfPath testMeshPath("/some_mesh");
+
+        _nukeDelegate = new HdNukeSceneDelegate(_renderIndex, SdfPath("/Nuke_Scene"));
+        _renderIndex->InsertRprim(HdPrimTypeTokens->mesh, _nukeDelegate,
+                                  testMeshPath);
+    }
+
     void loadUSDStage()
     {
         if (not _stagePathChanged) {
@@ -394,7 +413,7 @@ protected:
 
                 UsdPrim prim = stage->GetPseudoRoot();
 
-                _usdDelegate = new UsdImagingDelegate(_renderIndex, SdfPath("/USD/Test_Scene"));
+                _usdDelegate = new UsdImagingDelegate(_renderIndex, SdfPath("/USD_Scene"));
                 _usdDelegate->Populate(prim);
             }
         }
@@ -410,6 +429,8 @@ private:
     HdEngine _engine;
     HdxTaskController* _taskController = nullptr;
     HdRprimCollection _primCollection;
+
+    HdNukeSceneDelegate* _nukeDelegate = nullptr;
 
     bool _rendererInitialized = false;
     bool _needRender = false;
