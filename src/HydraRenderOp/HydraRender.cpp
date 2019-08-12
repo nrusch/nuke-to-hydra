@@ -116,7 +116,6 @@ protected:
     void initRenderer();
     void destroyRenderer();
 
-    void loadNukeScene();
     void loadUSDStage();
 
 private:
@@ -285,6 +284,14 @@ HydraRender::_validate(bool for_real)
     _taskController->SetFreeCameraMatrices(frustum.ComputeViewMatrix(),
                                            frustum.ComputeProjectionMatrix());
 
+    if (GeoOp* geoOp = dynamic_cast<GeoOp*>(Op::input(0))) {
+        geoOp->validate(for_real);
+        _nukeDelegate->SyncFromGeoOp(geoOp);
+    }
+    else {
+        _nukeDelegate->Clear();
+    }
+
     _needRender = true;
 }
 
@@ -299,7 +306,6 @@ HydraRender::engine(int y, int x, int r, ChannelMask channels, Row& out)
 
             // XXX: For building/testing
             loadUSDStage();
-            loadNukeScene();
 
             auto tasks = _taskController->GetRenderingTasks();
             _engine.Execute(_renderIndex, &tasks);
@@ -383,6 +389,8 @@ HydraRender::initRenderer()
 
     _taskController->SetCollection(_primCollection);
 
+    _nukeDelegate = new HdNukeSceneDelegate(_renderIndex);
+
     _rendererInitialized = true;
 }
 
@@ -392,6 +400,16 @@ HydraRender::destroyRenderer()
     if (_taskController != nullptr) {
         delete _taskController;
         _taskController = nullptr;
+    }
+
+    if (_usdDelegate != nullptr) {
+        delete _usdDelegate;
+        _usdDelegate = nullptr;
+    }
+
+    if (_nukeDelegate != nullptr) {
+        delete _nukeDelegate;
+        _nukeDelegate = nullptr;
     }
 
     if (_renderIndex != nullptr) {
@@ -410,20 +428,6 @@ HydraRender::destroyRenderer()
     }
 
     _rendererInitialized = false;
-}
-
-void
-HydraRender::loadNukeScene()
-{
-    if (_nukeDelegate != nullptr) {
-        return;
-    }
-
-    static SdfPath sceneDelegateId("/Nuke_Scene");
-
-    _nukeDelegate = new HdNukeSceneDelegate(_renderIndex, sceneDelegateId);
-    _renderIndex->InsertRprim(HdPrimTypeTokens->mesh, _nukeDelegate,
-                              sceneDelegateId.AppendChild("someTestMesh"));
 }
 
 void

@@ -6,6 +6,7 @@
 #include <pxr/imaging/hd/renderIndex.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 
+#include <DDImage/GeoOp.h>
 #include <DDImage/Scene.h>
 
 
@@ -14,11 +15,14 @@ using namespace DD::Image;
 PXR_NAMESPACE_OPEN_SCOPE
 
 
+static SdfPath DELEGATE_ID(TfToken("/Nuke_Scene"));
+static SdfPath MESH_ROOT_ID = DELEGATE_ID.AppendChild(TfToken("Meshes"));
+
+
 class HdNukeSceneDelegate : public HdSceneDelegate
 {
 public:
-    HdNukeSceneDelegate(HdRenderIndex* renderIndex,
-                        SdfPath const& delegateID);
+    HdNukeSceneDelegate(HdRenderIndex* renderIndex);
 
     ~HdNukeSceneDelegate() { }
 
@@ -32,8 +36,11 @@ public:
 
     virtual VtValue Get(SdfPath const& id, TfToken const& key);
 
-private:
+    void SyncFromGeoOp(GeoOp* op);
+    void Clear();
 
+private:
+    Scene _scene;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
