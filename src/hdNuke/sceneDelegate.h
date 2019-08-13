@@ -9,14 +9,16 @@
 #include <DDImage/GeoOp.h>
 #include <DDImage/Scene.h>
 
+#include "utils.h"
+
 
 using namespace DD::Image;
 
 PXR_NAMESPACE_OPEN_SCOPE
 
 
-static SdfPath DELEGATE_ID(TfToken("/Nuke_Scene"));
-static SdfPath MESH_ROOT_ID = DELEGATE_ID.AppendChild(TfToken("Meshes"));
+static SdfPath DELEGATE_ID(TfToken("/Nuke_Scene", TfToken::Immortal));
+static SdfPath GEO_ROOT_ID = DELEGATE_ID.AppendChild(TfToken("Geo"));
 
 
 class HdNukeSceneDelegate : public HdSceneDelegate
@@ -26,21 +28,30 @@ public:
 
     ~HdNukeSceneDelegate() { }
 
-    virtual bool IsEnabled(TfToken const& option) const;
 
-    virtual HdMeshTopology GetMeshTopology(SdfPath const& id);
 
-    virtual GfRange3d GetExtent(SdfPath const & id);
 
-    virtual GfMatrix4d GetTransform(SdfPath const & id);
+    bool IsEnabled(const TfToken& option) const override
+    {
+        // Currently this is only called with HdOptionTokens->parallelRprimSync.
+        return false;
+    }
 
-    virtual VtValue Get(SdfPath const& id, TfToken const& key);
+    HdMeshTopology GetMeshTopology(const SdfPath& id) override;
+
+    GfMatrix4d GetTransform(const SdfPath& id) override;
+
+    VtValue Get(const SdfPath& id, const TfToken& key) override;
+
+    SdfPath MakeRprimId(const GeoInfo& geoInfo) const;
 
     void SyncFromGeoOp(GeoOp* op);
     void Clear();
 
 private:
     Scene _scene;
+
+    std::unordered_map<SdfPath, const GeoInfo*, SdfPath::Hash> _rprimGeoInfos;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

@@ -35,6 +35,7 @@
 #include <DDImage/Thread.h>
 
 #include <hdNuke/sceneDelegate.h>
+#include <hdNuke/utils.h>
 
 
 using namespace DD::Image;
@@ -207,7 +208,7 @@ HydraRender::test_input(int index, Op* op) const
 void
 HydraRender::append(Hash& hash)
 {
-    std::cerr << "HydraRender::append" << std::endl;
+    // std::cerr << "HydraRender::append" << std::endl;
     input1().append(hash);
     if (GeoOp* geoOp = dynamic_cast<GeoOp*>(input(0))) {
         geoOp->append(hash);
@@ -232,9 +233,13 @@ HydraRender::knobs(Knob_Callback f)
 int
 HydraRender::knob_changed(Knob* k)
 {
-    std::cerr << "HydraRender::knob_changed : " << k->name() << std::endl;
+    // std::cerr << "HydraRender::knob_changed : " << k->name() << std::endl;
     if (k->is("usd_file")) {
         _stagePathChanged = true;
+        return 1;
+    }
+    if (k->is("renderer")) {
+        destroyRenderer();
         return 1;
     }
     return Iop::knob_changed(k);
@@ -261,9 +266,8 @@ HydraRender::_validate(bool for_real)
     CameraOp* cam = dynamic_cast<CameraOp*>(Op::input(1));
     cam->validate(for_real);
 
-    const Matrix4& nukeMatrix = cam->matrix();
-    GfMatrix4d camGfMatrix;
-    std::copy(nukeMatrix.array(), nukeMatrix.array() + 16, camGfMatrix.data());
+    // const Matrix4& nukeMatrix = cam->matrix();
+    GfMatrix4d camGfMatrix = DDToGfMatrix(cam->matrix());
 
     // TODO:
     // - Support horiz/vertical aperture offset (need to convert Nuke
