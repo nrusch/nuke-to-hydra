@@ -123,16 +123,64 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
     op->build_scene(_scene);
     GeometryList* geoList = _scene.object_list();
 
-    std::cerr << "HdNukeSceneDelegate::SyncFromGeoOp : Scene contains " << geoList->size() << " GeoInfos" << std::endl;
+    std::cerr << "HdNukeSceneDelegate::SyncFromGeoOp" << std::endl;
+
+    if (geoList->size() == 0) {
+        Clear();
+        return;
+    }
+
+    // Generate Rprim IDs for the GeoInfos in the scene
+    RprimGeoInfoRefMap sceneGeoInfos;
+    sceneGeoInfos.reserve(geoList->size());
 
     for (size_t i = 0; i < geoList->size(); i++)
     {
         const GeoInfo& geoInfo = geoList->object(i);
 
         SdfPath primId = MakeRprimId(geoInfo);
-        _rprimGeoInfos[primId] = &geoInfo;
+        sceneGeoInfos.emplace(primId, geoInfo);
+    }
 
-        GetRenderIndex().InsertRprim(HdPrimTypeTokens->mesh, this, primId);
+    HdRenderIndex& renderIndex = GetRenderIndex();
+    HdChangeTracker& changeTracker = renderIndex.GetChangeTracker();
+
+    // Insert new Rprims for IDs we don't already know about
+    for (const auto& sceneGeoPair : sceneGeoInfos)
+    {
+        const SdfPath& primId = sceneGeoPair.first;
+        if (_rprimGeoInfos.find(primId) == _rprimGeoInfos.end()) {
+            _rprimGeoInfos[primId] = &sceneGeoPair.second;
+
+            renderIndex.InsertRprim(HdPrimTypeTokens->mesh, this, primId);
+            // TODO: Cache information about attributes (scopes, etc.)
+            // Maybe Sync is the right place for this...?
+        }
+        else {
+            // TODO: Support partially updating existing rprims. I think this
+            // will require an awareness of src and out hashes for each rprim
+            // (not necessarily in a hierarchy), and what to do if only one of
+            // them changes. Thus, we will need to verify how modifying
+            // different aspects of the GeoInfo affect those hashes. Probably
+            // worth asking Foundry about this.
+            // We may also need to rethink the prim IDs, particularly if the
+            // output hash changes for things like transform, but the source
+            // stays the same if the topology data is the same.
+            // What about motion/deformation?
+
+            changeTracker.MarkRprimDirty(primId);
+        }
+    }
+
+    // Remove Rprims whose IDs are not in the new scene.
+    for (auto it = _rprimGeoInfos.begin(); it != _rprimGeoInfos.end(); ) {
+        if (sceneGeoInfos.find(it->first) == sceneGeoInfos.end()) {
+            renderIndex.RemoveRprim(it->first);
+            it = _rprimGeoInfos.erase(it);
+        }
+        else {
+            it++;
+        }
     }
 }
 

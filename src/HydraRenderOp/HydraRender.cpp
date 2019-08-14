@@ -209,8 +209,8 @@ void
 HydraRender::append(Hash& hash)
 {
     // std::cerr << "HydraRender::append" << std::endl;
-    input1().append(hash);
-    if (GeoOp* geoOp = dynamic_cast<GeoOp*>(input(0))) {
+    Op::input(1)->append(hash);
+    if (GeoOp* geoOp = dynamic_cast<GeoOp*>(Op::input(0))) {
         geoOp->append(hash);
     }
 }

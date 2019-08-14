@@ -21,6 +21,10 @@ static SdfPath DELEGATE_ID(TfToken("/Nuke_Scene", TfToken::Immortal));
 static SdfPath GEO_ROOT_ID = DELEGATE_ID.AppendChild(TfToken("Geo"));
 
 
+typedef std::unordered_map<SdfPath, const GeoInfo*, SdfPath::Hash> RprimGeoInfoPtrMap;
+typedef std::unordered_map<SdfPath, const GeoInfo&, SdfPath::Hash> RprimGeoInfoRefMap;
+
+
 class HdNukeSceneDelegate : public HdSceneDelegate
 {
 public:
@@ -51,8 +55,9 @@ public:
 private:
     Scene _scene;
 
-    std::unordered_map<SdfPath, const GeoInfo*, SdfPath::Hash> _rprimGeoInfos;
+    RprimGeoInfoPtrMap _rprimGeoInfos;
 };
+
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
