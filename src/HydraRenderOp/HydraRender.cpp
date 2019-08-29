@@ -87,11 +87,135 @@ _scanRendererPlugins()
     });
 }
 
+
+struct HydraData
+{
+    HdRenderIndex* renderIndex = nullptr;
+    HdxRendererPlugin* rendererPlugin = nullptr;  // Ref-counted by Hydra
+    // HdRenderDelegate* renderDelegate = nullptr;
+
+    HdNukeSceneDelegate* nukeDelegate = nullptr;
+    UsdImagingDelegate* usdDelegate = nullptr;
+
+    HdxTaskController* taskController = nullptr;
+    HdRprimCollection primCollection;
+
+    HydraData(TfToken pluginId)
+            : primCollection(TfToken("HydraNukeGeo"),
+                             HdReprSelector(HdReprTokens->refined))
+    {
+        std::cerr << "new HydraData" << std::endl;
+        rendererPlugin = HdxRendererPluginRegistry::GetInstance()
+            .GetRendererPlugin(pluginId);
+
+        HdRenderDelegate* renderDelegate = rendererPlugin->CreateRenderDelegate();
+        renderIndex = HdRenderIndex::New(renderDelegate);
+
+        nukeDelegate = new HdNukeSceneDelegate(renderIndex);
+
+        static SdfPath taskControllerId("/HydraNuke_TaskController");
+        taskController = new HdxTaskController(renderIndex, taskControllerId);
+
+        taskController->SetCollection(primCollection);
+    }
+
+    ~HydraData()
+    {
+        std::cerr << "~HydraData" << std::endl;
+        if (taskController != nullptr) {
+            delete taskController;
+            // taskController = nullptr;
+        }
+
+        if (usdDelegate != nullptr) {
+            delete usdDelegate;
+            // usdDelegate = nullptr;
+        }
+
+        if (nukeDelegate != nullptr) {
+            delete nukeDelegate;
+            // nukeDelegate = nullptr;
+        }
+
+        HdRenderDelegate* renderDelegate = nullptr;
+        if (renderIndex != nullptr) {
+            renderDelegate = renderIndex->GetRenderDelegate();
+            delete renderIndex;
+            // renderIndex = nullptr;
+        }
+
+        if (rendererPlugin != nullptr) {
+            if (renderDelegate != nullptr) {
+                rendererPlugin->DeleteRenderDelegate(renderDelegate);
+                // renderDelegate = nullptr;
+            }
+
+            HdxRendererPluginRegistry::GetInstance().ReleasePlugin(rendererPlugin);
+            // rendererPlugin = nullptr;
+        }
+    }
+
+    void loadUSDStage(const char* usdFilePath)
+    {
+        static SdfPath usdDelegateId("/USD_Scene");
+
+        if (usdDelegate != nullptr) {
+            renderIndex->RemoveSubtree(usdDelegateId, usdDelegate);
+            // delete usdDelegate;
+            // usdDelegate = nullptr;
+        }
+
+        if (strlen(usdFilePath) == 0) {
+            return;
+        }
+
+        std::cerr << "HydraRender : loading stage " << usdFilePath << std::endl;
+        if (auto stage = UsdStage::Open(usdFilePath)) {
+            // XXX: Basic up-axis correction for sanity
+            if (UsdGeomGetStageUpAxis(stage) == UsdGeomTokens->z) {
+                if (auto defaultPrim = stage->GetDefaultPrim()) {
+                    if (defaultPrim.IsA<UsdGeomXformable>()) {
+                        stage->SetEditTarget(stage->GetSessionLayer());
+                        auto xform = UsdGeomXformable(defaultPrim);
+                        auto rotXop = xform.AddRotateXOp(
+                            UsdGeomXformOp::PrecisionDouble,
+                            TfToken("upAxisCorrection"));
+                        rotXop.Set<double>(-90);
+                    }
+                }
+            }
+
+            TfTokenVector purposes;
+            purposes.push_back(UsdGeomTokens->default_);
+            purposes.push_back(UsdGeomTokens->render);
+
+            UsdGeomBBoxCache bboxCache(UsdTimeCode::Default(), purposes, true);
+
+            GfBBox3d bbox = bboxCache.ComputeWorldBound(stage->GetPseudoRoot());
+            GfRange3d world = bbox.ComputeAlignedRange();
+
+            GfVec3d worldCenter = (world.GetMin() + world.GetMax()) / 2.0;
+            double worldSize = world.GetSize().GetLength();
+
+            std::cerr << "worldCenter: " << worldCenter << "\n";
+            std::cerr << "worldSize: " << worldSize << "\n";
+
+            UsdPrim prim = stage->GetPseudoRoot();
+
+            if (usdDelegate == nullptr) {
+                usdDelegate = new UsdImagingDelegate(renderIndex, usdDelegateId);
+            }
+            usdDelegate->Populate(prim);
+        }
+    }
+};
+
+
 }  // namespace
 
 
-class HydraRender : public Iop {
-
+class HydraRender : public Iop
+{
 public:
     HydraRender(Node* node);
     ~HydraRender();
@@ -109,28 +233,18 @@ public:
     void _request(int x, int y, int r, int t, ChannelMask mask, int count) override { }
     void engine(int y, int x, int r, ChannelMask channels, Row& out) override;
 
+    inline HdxTaskController* taskController() { return _hdata->taskController; }
+
     const char* Class() const { return CLASS; }
     const char* node_help() const { return HELP; }
     static const Iop::Description desc;
 
 protected:
-    void initRenderer();
-    void destroyRenderer();
-
-    void loadUSDStage();
+    void resetRenderer();
 
 private:
-    HdRenderIndex* _renderIndex = nullptr;
-    HdxRendererPlugin* _rendererPlugin = nullptr;  // Ref-counted by Hydra
-    HdRenderDelegate* _renderDelegate = nullptr;
-
     HdEngine _engine;
-    HdxTaskController* _taskController = nullptr;
-    HdRprimCollection _primCollection;
-
-    HdNukeSceneDelegate* _nukeDelegate = nullptr;
-
-    bool _rendererInitialized = false;
+    std::unique_ptr<HydraData> _hdata;
     bool _needRender = false;
     Lock _engineLock;
 
@@ -139,7 +253,6 @@ private:
     FormatPair _formats;
 
     // Temp - for testing
-    UsdImagingDelegate* _usdDelegate = nullptr;
     const char* _usdFilePath;
     bool _stagePathChanged = true;
 };
@@ -155,18 +268,16 @@ const Iop::Description HydraRender::desc(CLASS, 0, build);
 
 HydraRender::HydraRender(Node* node)
         : Iop(node),
-          _primCollection(TfToken("HydraNukeGeo"),
-                          HdReprSelector(HdReprTokens->refined)),
           _usdFilePath("")
 {
     _scanRendererPlugins();
+    resetRenderer();
 
     inputs(2);
 }
 
 HydraRender::~HydraRender()
 {
-    destroyRenderer();
 }
 
 const char*
@@ -239,7 +350,7 @@ HydraRender::knob_changed(Knob* k)
         return 1;
     }
     if (k->is("renderer")) {
-        destroyRenderer();
+        resetRenderer();
         return 1;
     }
     return Iop::knob_changed(k);
@@ -255,12 +366,8 @@ HydraRender::_validate(bool for_real)
     info_.channels(Mask_RGBA);
     info_.set(format());
 
-    if (!_rendererInitialized) {
-        initRenderer();
-    }
-
     GfVec4d viewport(0, 0, info_.w(), info_.h());
-    _taskController->SetRenderViewport(viewport);
+    taskController()->SetRenderViewport(viewport);
 
     // Set up Gf camera from camera input
     CameraOp* cam = dynamic_cast<CameraOp*>(Op::input(1));
@@ -285,15 +392,15 @@ HydraRender::_validate(bool for_real)
     );
 
     GfFrustum frustum = gfCamera.GetFrustum();
-    _taskController->SetFreeCameraMatrices(frustum.ComputeViewMatrix(),
-                                           frustum.ComputeProjectionMatrix());
+    taskController()->SetFreeCameraMatrices(frustum.ComputeViewMatrix(),
+                                            frustum.ComputeProjectionMatrix());
 
     if (GeoOp* geoOp = dynamic_cast<GeoOp*>(Op::input(0))) {
         geoOp->validate(for_real);
-        _nukeDelegate->SyncFromGeoOp(geoOp);
+        _hdata->nukeDelegate->SyncFromGeoOp(geoOp);
     }
     else {
-        _nukeDelegate->Clear();
+        _hdata->nukeDelegate->Clear();
     }
 
     _needRender = true;
@@ -309,19 +416,22 @@ HydraRender::engine(int y, int x, int r, ChannelMask channels, Row& out)
             std::cerr << "  channels: " << channels << std::endl;
 
             // XXX: For building/testing
-            loadUSDStage();
+            if (_stagePathChanged) {
+                _hdata->loadUSDStage(_usdFilePath);
+                _stagePathChanged = false;
+            }
 
-            auto tasks = _taskController->GetRenderingTasks();
-            _engine.Execute(_renderIndex, &tasks);
+            auto tasks = taskController()->GetRenderingTasks();
+            _engine.Execute(_hdata->renderIndex, &tasks);
 
-            while (!_taskController->IsConverged())
+            while (!taskController()->IsConverged())
             {
                 std::this_thread::sleep_for(std::chrono::milliseconds(75));
             }
 
             if (!aborted()) {
 
-                HdRenderBuffer* colorBuffer = _taskController->GetRenderOutput(
+                HdRenderBuffer* colorBuffer = taskController()->GetRenderOutput(
                     HdAovTokens->color);
                 if (colorBuffer != nullptr) {
                     colorBuffer->Resolve();
@@ -343,7 +453,7 @@ HydraRender::engine(int y, int x, int r, ChannelMask channels, Row& out)
         return;
     }
 
-    HdRenderBuffer* colorBuffer = _taskController->GetRenderOutput(
+    HdRenderBuffer* colorBuffer = taskController()->GetRenderOutput(
         HdAovTokens->color);
     if (colorBuffer) {
         out.erase(channels);  // XXX: Temp
@@ -367,130 +477,25 @@ HydraRender::engine(int y, int x, int r, ChannelMask channels, Row& out)
 }
 
 void
-HydraRender::initRenderer()
+HydraRender::resetRenderer()
 {
-    _rendererPlugin = HdxRendererPluginRegistry::GetInstance().GetRendererPlugin(
-        g_pluginIds[_selectedRenderer]);
-    _renderDelegate = _rendererPlugin->CreateRenderDelegate();
-    _renderIndex = HdRenderIndex::New(_renderDelegate);
+    // TODO: Check for same renderer plugin
+    _hdata.reset(new HydraData(g_pluginIds[_selectedRenderer]));
 
-    _taskController = new HdxTaskController(
-        _renderIndex, SdfPath("/HydraNuke_TaskController"));
-    _taskController->SetEnableSelection(false);
+    taskController()->SetEnableSelection(false);
 
     HdxRenderTaskParams renderTaskParams;
     renderTaskParams.enableLighting = true;
     renderTaskParams.enableSceneMaterials = true;
-    _taskController->SetRenderParams(renderTaskParams);
+    taskController()->SetRenderParams(renderTaskParams);
 
     // To disable viewport rendering
-    _taskController->SetViewportRenderOutput(TfToken());
+    taskController()->SetViewportRenderOutput(TfToken());
 
     TfTokenVector renderTags;
     renderTags.push_back(HdRenderTagTokens->geometry);
     renderTags.push_back(HdRenderTagTokens->render);
-    _taskController->SetRenderTags(renderTags);
-
-    _taskController->SetCollection(_primCollection);
-
-    _nukeDelegate = new HdNukeSceneDelegate(_renderIndex);
-
-    _rendererInitialized = true;
-}
-
-void
-HydraRender::destroyRenderer()
-{
-    if (_taskController != nullptr) {
-        delete _taskController;
-        _taskController = nullptr;
-    }
-
-    if (_usdDelegate != nullptr) {
-        delete _usdDelegate;
-        _usdDelegate = nullptr;
-    }
-
-    if (_nukeDelegate != nullptr) {
-        delete _nukeDelegate;
-        _nukeDelegate = nullptr;
-    }
-
-    if (_renderIndex != nullptr) {
-        delete _renderIndex;
-        _renderIndex = nullptr;
-    }
-
-    if (_rendererPlugin != nullptr) {
-        if (_renderDelegate != nullptr) {
-            _rendererPlugin->DeleteRenderDelegate(_renderDelegate);
-            _renderDelegate = nullptr;
-        }
-
-        HdxRendererPluginRegistry::GetInstance().ReleasePlugin(_rendererPlugin);
-        _rendererPlugin = nullptr;
-    }
-
-    _rendererInitialized = false;
-}
-
-void
-HydraRender::loadUSDStage()
-{
-    if (not _stagePathChanged) {
-        return;
-    }
-
-    for (const auto& primId : _renderIndex->GetRprimIds())
-    {
-        _renderIndex->RemoveRprim(primId);
-    }
-
-    if (_usdDelegate != nullptr) {
-        delete _usdDelegate;
-        _usdDelegate = nullptr;
-    }
-
-    if (strlen(_usdFilePath) > 0) {
-        std::cerr << "HydraRender : loading stage " << _usdFilePath << std::endl;
-        if (auto stage = UsdStage::Open(_usdFilePath)) {
-            // XXX: Basic up-axis correction for sanity
-            if (UsdGeomGetStageUpAxis(stage) == UsdGeomTokens->z) {
-                if (auto defaultPrim = stage->GetDefaultPrim()) {
-                    if (defaultPrim.IsA<UsdGeomXformable>()) {
-                        stage->SetEditTarget(stage->GetSessionLayer());
-                        auto xform = UsdGeomXformable(defaultPrim);
-                        auto rotXop = xform.AddRotateXOp(
-                            UsdGeomXformOp::PrecisionDouble,
-                            TfToken("upAxisCorrection"));
-                        rotXop.Set<double>(-90);
-                    }
-                }
-            }
-
-            TfTokenVector purposes;
-            purposes.push_back(UsdGeomTokens->default_);
-            purposes.push_back(UsdGeomTokens->render);
-
-            UsdGeomBBoxCache bboxCache(UsdTimeCode::Default(), purposes, true);
-
-            GfBBox3d bbox = bboxCache.ComputeWorldBound(stage->GetPseudoRoot());
-            GfRange3d world = bbox.ComputeAlignedRange();
-
-            GfVec3d worldCenter = (world.GetMin() + world.GetMax()) / 2.0;
-            double worldSize = world.GetSize().GetLength();
-
-            std::cerr << "worldCenter: " << worldCenter << "\n";
-            std::cerr << "worldSize: " << worldSize << "\n";
-
-            UsdPrim prim = stage->GetPseudoRoot();
-
-            _usdDelegate = new UsdImagingDelegate(_renderIndex, SdfPath("/USD_Scene"));
-            _usdDelegate->Populate(prim);
-        }
-    }
-
-    _stagePathChanged = false;
+    taskController()->SetRenderTags(renderTags);
 }
 
 

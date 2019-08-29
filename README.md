@@ -11,14 +11,16 @@ Hydra rendering in Nuke.
 - Manual abort mechanism for renders (cancel button?)
     - Keep an eye out for any way to hook a progress callback to Hydra
 - Support all render buffer formats (Int32 will be weird)
-- Add table knob for render delegate settings (at least initially)
 - Silo render stack in some kind of a struct to make for easy setup/teardown
     - See if we can keep any pieces around when switching (and if it's worth it)
     - Double-check UsdImagingGLEngine render plugin swapping code
+- Understand significance of RprimCollection...
+    - See UsdImagingGLEngine::_UpdateHydraCollection
 - Look up renderer plugin by ID instead of keeping an ID token array
     - Can we store a string instead of an index?
 - Storm support (2D and/or 3D)
 - Different rendering modes (wireframe, etc)?
+- Dynamic knobs for render delegate settings
 
 #### Scene Delegate
 
