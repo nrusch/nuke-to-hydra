@@ -233,7 +233,7 @@ public:
     void _request(int x, int y, int r, int t, ChannelMask mask, int count) override { }
     void engine(int y, int x, int r, ChannelMask channels, Row& out) override;
 
-    inline HdxTaskController* taskController() { return _hdata->taskController; }
+    inline HdxTaskController* taskController() const { return _hdata->taskController; }
 
     const char* Class() const { return CLASS; }
     const char* node_help() const { return HELP; }
@@ -241,6 +241,7 @@ public:
 
 protected:
     void resetRenderer();
+    std::vector<HdRenderBuffer*> getRenderBuffers() const;
 
 private:
     HdEngine _engine;
@@ -474,6 +475,24 @@ HydraRender::engine(int y, int x, int r, ChannelMask channels, Row& out)
     else {
         out.erase(channels);
     }
+}
+
+std::vector<HdRenderBuffer*>
+HydraRender::getRenderBuffers() const
+{
+    auto bprimIds = _hdata->renderIndex->GetBprimSubtree(
+        HdPrimTypeTokens->renderBuffer, taskController()->GetControllerId());
+
+    std::vector<HdRenderBuffer*> buffers;
+    buffers.reserve(bprimIds.size());
+
+    for (const auto& bprimId : bprimIds)
+    {
+        buffers.push_back(
+            static_cast<HdRenderBuffer*>(_hdata->renderIndex->GetBprim(
+                HdPrimTypeTokens->renderBuffer, bprimId)));
+    }
+    return buffers;
 }
 
 void
