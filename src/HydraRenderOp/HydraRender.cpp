@@ -26,7 +26,7 @@
 
 #include <DDImage/CameraOp.h>
 #include <DDImage/Enumeration_KnobI.h>
-#include <DDImage/Iop.h>
+#include <DDImage/PlanarIop.h>
 #include <DDImage/Knob.h>
 #include <DDImage/Knobs.h>
 #include <DDImage/LUT.h>
@@ -214,7 +214,7 @@ struct HydraData
 }  // namespace
 
 
-class HydraRender : public Iop
+class HydraRender : public PlanarIop
 {
 public:
     HydraRender(Node* node);
@@ -230,10 +230,16 @@ public:
     int knob_changed(Knob* k) override;
 
     void _validate(bool for_real) override;
-    void _request(int x, int y, int r, int t, ChannelMask mask, int count) override { }
-    void engine(int y, int x, int r, ChannelMask channels, Row& out) override;
 
-    inline HdxTaskController* taskController() const { return _hdata->taskController; }
+    bool renderFullPlanes() const override { return true; }
+    void getRequests(const Box& box, const ChannelSet& channels, int count,
+                     RequestOutput &reqData) const override { }
+    void renderStripe(ImagePlane& plane) override;
+
+    inline HdxTaskController* taskController() const
+    {
+        return _hdata->taskController;
+    }
 
     const char* Class() const { return CLASS; }
     const char* node_help() const { return HELP; }
@@ -268,7 +274,7 @@ const Iop::Description HydraRender::desc(CLASS, 0, build);
 // -----------------
 
 HydraRender::HydraRender(Node* node)
-        : Iop(node),
+        : PlanarIop(node),
           _usdFilePath("")
 {
     _scanRendererPlugins();
@@ -408,72 +414,64 @@ HydraRender::_validate(bool for_real)
 }
 
 void
-HydraRender::engine(int y, int x, int r, ChannelMask channels, Row& out)
+HydraRender::renderStripe(ImagePlane& plane)
 {
+    Box box = plane.bounds();
+    std::cerr << "HydraRender::renderStripe"  << std::endl;
+    std::cerr << "  bounds: " << box.x() << ", " << box.y() << ", " << box.r() << ", " << box.t() << std::endl;
+    std::cerr << "  channels: " << plane.channels() << " (packed: " << plane.packed() << ")" << std::endl;
+
+    plane.makeWritable();
     if (_needRender) {
-        Guard g(_engineLock);
-        if (_needRender) {
-            std::cerr << "HydraRender::engine"  << std::endl;
-            std::cerr << "  channels: " << channels << std::endl;
-
-            // XXX: For building/testing
-            if (_stagePathChanged) {
-                _hdata->loadUSDStage(_usdFilePath);
-                _stagePathChanged = false;
-            }
-
-            auto tasks = taskController()->GetRenderingTasks();
-            _engine.Execute(_hdata->renderIndex, &tasks);
-
-            while (!taskController()->IsConverged())
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(75));
-            }
-
-            if (!aborted()) {
-
-                HdRenderBuffer* colorBuffer = taskController()->GetRenderOutput(
-                    HdAovTokens->color);
-                if (colorBuffer != nullptr) {
-                    colorBuffer->Resolve();
-                    std::cerr << "Buffer: "
-                        << colorBuffer->GetWidth() << 'x' << colorBuffer->GetHeight()
-                        << ", format: " << colorBuffer->GetFormat() << std::endl;
-                }
-                else {
-                    error("Null color buffer after render!");
-                }
-
-                _needRender = false;
-            }
+        // XXX: For building/testing
+        if (_stagePathChanged) {
+            _hdata->loadUSDStage(_usdFilePath);
+            _stagePathChanged = false;
         }
+
+        auto tasks = taskController()->GetRenderingTasks();
+        _engine.Execute(_hdata->renderIndex, &tasks);
+
+        while (!taskController()->IsConverged())
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(75));
+        }
+
+        _needRender = false;
     }
 
     if (aborted()) {
-        out.erase(channels);
         return;
     }
 
     HdRenderBuffer* colorBuffer = taskController()->GetRenderOutput(
         HdAovTokens->color);
-    if (colorBuffer) {
-        out.erase(channels);  // XXX: Temp
+    if (!colorBuffer) {
+        error("Null color buffer after render!");
+        return;
+    }
 
-        if (colorBuffer->GetFormat() == HdFormatUNorm8Vec4) {
-            void* data = colorBuffer->Map();
-            foreach(z, channels) {
-                float* dest = out.writable(z) + x;
+    colorBuffer->Resolve();
+    if (colorBuffer->GetFormat() == HdFormatUNorm8Vec4) {
+        void* data = colorBuffer->Map();
+        if (plane.packed()) {
+            Linear::from_byte(plane.writable(), static_cast<uint8_t*>(data),
+                              box.area() * 4);
+        }
+        else {
+            float* dest = plane.writable();
+            const uint32_t planeArea = box.area();
+
+            foreach(z, plane.channels()) {
+                const uint8_t chanOffset = colourIndex(z);
                 Linear::from_byte(
-                    dest,
-                    static_cast<uint8_t*>(data) + (y * 4 * colorBuffer->GetWidth()) + (x * 4) + colourIndex(z),
-                    r - x,
+                    dest + (planeArea * chanOffset),
+                    static_cast<uint8_t*>(data) + chanOffset,
+                    planeArea,
                     4);
             }
-            colorBuffer->Unmap();
         }
-    }
-    else {
-        out.erase(channels);
+        colorBuffer->Unmap();
     }
 }
 

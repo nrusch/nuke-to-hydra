@@ -6,7 +6,6 @@ Hydra rendering in Nuke.
 
 #### HydraRender Op
 
-- Convert to PlanarIop (maybe switchable at compile time)
 - Handle aborted() in engine during render
 - Manual abort mechanism for renders (cancel button?)
     - Keep an eye out for any way to hook a progress callback to Hydra
