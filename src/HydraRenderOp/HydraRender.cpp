@@ -230,24 +230,24 @@ public:
     int knob_changed(Knob* k) override;
 
     void _validate(bool for_real) override;
-
     bool renderFullPlanes() const override { return true; }
     void getRequests(const Box& box, const ChannelSet& channels, int count,
                      RequestOutput &reqData) const override { }
     void renderStripe(ImagePlane& plane) override;
-
-    inline HdxTaskController* taskController() const
-    {
-        return _hdata->taskController;
-    }
 
     const char* Class() const { return CLASS; }
     const char* node_help() const { return HELP; }
     static const Iop::Description desc;
 
 protected:
+    inline HdxTaskController* taskController() const
+    {
+        return _hdata->taskController;
+    }
+
     void resetRenderer();
     std::vector<HdRenderBuffer*> getRenderBuffers() const;
+    void copyBufferToImagePlane(HdRenderBuffer* buffer, ImagePlane& plane);
 
 private:
     HdEngine _engine;
@@ -370,7 +370,7 @@ HydraRender::_validate(bool for_real)
 
     info_.full_size_format(*_formats.fullSizeFormat());
     info_.format(*_formats.format());
-    info_.channels(Mask_RGBA);
+    info_.channels(Mask_RGBA | Mask_Z);
     info_.set(format());
 
     GfVec4d viewport(0, 0, info_.w(), info_.h());
@@ -421,7 +421,6 @@ HydraRender::renderStripe(ImagePlane& plane)
     std::cerr << "  bounds: " << box.x() << ", " << box.y() << ", " << box.r() << ", " << box.t() << std::endl;
     std::cerr << "  channels: " << plane.channels() << " (packed: " << plane.packed() << ")" << std::endl;
 
-    plane.makeWritable();
     if (_needRender) {
         // XXX: For building/testing
         if (_stagePathChanged) {
@@ -438,41 +437,40 @@ HydraRender::renderStripe(ImagePlane& plane)
         }
 
         _needRender = false;
+
+        if (!taskController()->GetRenderOutput(HdAovTokens->color)) {
+            error("Null color buffer after render!");
+            return;
+        }
     }
 
     if (aborted()) {
         return;
     }
 
-    HdRenderBuffer* colorBuffer = taskController()->GetRenderOutput(
-        HdAovTokens->color);
-    if (!colorBuffer) {
-        error("Null color buffer after render!");
+    plane.makeWritable();
+    const ChannelSet channels = plane.channels();
+
+    TfToken outputName;
+    if (channels & Mask_RGBA) {
+        outputName = HdAovTokens->color;
+    }
+    else if (channels & Mask_Z) {
+        outputName = HdAovTokens->depth;
+    }
+    else {
+        error("Unknown ChanneSet requested in renderStripe");
         return;
     }
 
-    colorBuffer->Resolve();
-    if (colorBuffer->GetFormat() == HdFormatUNorm8Vec4) {
-        void* data = colorBuffer->Map();
-        if (plane.packed()) {
-            Linear::from_byte(plane.writable(), static_cast<uint8_t*>(data),
-                              box.area() * 4);
-        }
-        else {
-            float* dest = plane.writable();
-            const uint32_t planeArea = box.area();
-
-            foreach(z, plane.channels()) {
-                const uint8_t chanOffset = colourIndex(z);
-                Linear::from_byte(
-                    dest + (planeArea * chanOffset),
-                    static_cast<uint8_t*>(data) + chanOffset,
-                    planeArea,
-                    4);
-            }
-        }
-        colorBuffer->Unmap();
+    HdRenderBuffer* sourceBuffer = taskController()->GetRenderOutput(outputName);
+    if (!sourceBuffer) {
+        error("Could not find render buffer for output %s", outputName.GetText());
+        return;
     }
+
+    sourceBuffer->Resolve();
+    copyBufferToImagePlane(sourceBuffer, plane);
 }
 
 std::vector<HdRenderBuffer*>
@@ -491,6 +489,79 @@ HydraRender::getRenderBuffers() const
                 HdPrimTypeTokens->renderBuffer, bprimId)));
     }
     return buffers;
+}
+
+void
+HydraRender::copyBufferToImagePlane(HdRenderBuffer* buffer, ImagePlane& plane)
+{
+    const HdFormat bufferFormat = buffer->GetFormat();
+    const size_t numComponents = HdGetComponentCount(bufferFormat);
+
+    const ChannelSet channels = plane.channels();
+    if (channels.size() != numComponents) {
+        error("Buffer component count (%zu) does not match output plane "
+              "channel count (%d)", numComponents, channels.size());
+        return;
+    }
+
+    const size_t numPixels = plane.bounds().area();
+    void* data = buffer->Map();
+    float* dest = plane.writable();
+
+    switch (HdGetComponentFormat(bufferFormat)) {
+        case HdFormatUNorm8:
+            if (plane.packed() or numComponents == 1) {
+                Linear::from_byte(dest, static_cast<uint8_t*>(data),
+                                  numPixels * numComponents);
+            }
+            else {
+                foreach(z, channels) {
+                    const uint8_t chanOffset = colourIndex(z);
+                    Linear::from_byte(
+                        dest + numPixels * chanOffset,
+                        static_cast<uint8_t*>(data) + chanOffset,
+                        numPixels,
+                        numComponents);
+                }
+            }
+            break;
+        case HdFormatSNorm8:
+            convertRenderBufferData<int8_t>(data, dest, numPixels, numComponents,
+                                            plane.packed());
+            break;
+        case HdFormatFloat16:
+            convertRenderBufferData<GfHalf>(data, dest, numPixels, numComponents,
+                                            plane.packed());
+            break;
+        case HdFormatFloat32:
+            if (plane.packed() or numComponents == 1) {
+                Linear::from_float(dest, static_cast<float*>(data),
+                                   numPixels * numComponents);
+            }
+            else {
+                foreach(z, channels) {
+                    const uint8_t chanOffset = colourIndex(z);
+                    Linear::from_float(
+                        dest + numPixels * chanOffset,
+                        static_cast<float*>(data) + chanOffset,
+                        numPixels,
+                        numComponents);
+                }
+            }
+            break;
+        case HdFormatInt32:
+            convertRenderBufferData<int32_t>(data, dest, numPixels, numComponents,
+                                             plane.packed());
+            break;
+        default:
+            TF_WARN("[HydraRender] Unhandled render buffer format: %d",
+                    static_cast<std::underlying_type<HdFormat>::type>(bufferFormat));
+            foreach(z, channels) {
+                plane.fillChannel(z, 0.0f);
+            }
+    }
+
+    buffer->Unmap();
 }
 
 void

@@ -6,13 +6,13 @@ Hydra rendering in Nuke.
 
 #### HydraRender Op
 
+- Add knobs to control output of depth, normals.
+    - Support both depth and linearDepth (need to manually add the latter)
+- Add a knob to output all buffers for debugging.
 - Handle aborted() in engine during render
 - Manual abort mechanism for renders (cancel button?)
     - Keep an eye out for any way to hook a progress callback to Hydra
-- Support all render buffer formats (Int32 will be weird)
-- Silo render stack in some kind of a struct to make for easy setup/teardown
-    - See if we can keep any pieces around when switching (and if it's worth it)
-    - Double-check UsdImagingGLEngine render plugin swapping code
+- Compare HydraData struct with UsdImagingGLEngine render plugin swapping code
 - Understand significance of RprimCollection...
     - See UsdImagingGLEngine::_UpdateHydraCollection
 - Look up renderer plugin by ID instead of keeping an ID token array

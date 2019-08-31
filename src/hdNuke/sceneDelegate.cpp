@@ -23,7 +23,6 @@ HdNukeSceneDelegate::GetMeshTopology(const SdfPath& id)
 
     const uint32_t numPrimitives = geoInfo->primitives();
 
-    // TODO: Profile whether this is worth it...
     size_t totalFaces = 0;
     const Primitive** primArray = geoInfo->primitive_array();
     for (size_t primIndex = 0; primIndex < numPrimitives; primIndex++)
