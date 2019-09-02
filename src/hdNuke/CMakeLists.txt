@@ -1,5 +1,6 @@
 add_library(${HDNUKE_LIB_NAME} SHARED
-    sceneDelegate.cpp)
+    sceneDelegate.cpp
+    tokens.cpp)
 
 target_include_directories(${HDNUKE_LIB_NAME}
     PRIVATE

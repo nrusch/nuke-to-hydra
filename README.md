@@ -13,8 +13,6 @@ Hydra rendering in Nuke.
 - Manual abort mechanism for renders (cancel button?)
     - Keep an eye out for any way to hook a progress callback to Hydra
 - Compare HydraData struct with UsdImagingGLEngine render plugin swapping code
-- Understand significance of RprimCollection...
-    - See UsdImagingGLEngine::_UpdateHydraCollection
 - Look up renderer plugin by ID instead of keeping an ID token array
     - Can we store a string instead of an index?
 - Storm support (2D and/or 3D)
@@ -28,8 +26,8 @@ Hydra rendering in Nuke.
     - Need a fast way to identify GeoInfo type without having to look at all
       child primitives.
 - Lights
-- Primvar descriptors/sampling
-    - Pre-cache information about available attributes to make this easier
+- Support remapping attribute names to align with USD/Hd standards (e.g. uv->st)
+- Do we need to worry about `AttribContext.varying`?
 - Nuke material handling
     - Basic rprim colors from Nuke
     - Texturing support. Can we use Nuke's material evaluation to generate

@@ -47,6 +47,9 @@ public:
 
     VtValue Get(const SdfPath& id, const TfToken& key) override;
 
+    HdPrimvarDescriptorVector
+    GetPrimvarDescriptors(const SdfPath& id, HdInterpolation interpolation) override;
+
     SdfPath MakeRprimId(const GeoInfo& geoInfo) const;
 
     void SyncFromGeoOp(GeoOp* op);

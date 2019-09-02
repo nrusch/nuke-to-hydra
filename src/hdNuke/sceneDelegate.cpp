@@ -3,6 +3,7 @@
 #include <pxr/imaging/pxOsd/tokens.h>
 
 #include "sceneDelegate.h"
+#include "tokens.h"
 
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -100,6 +101,65 @@ HdNukeSceneDelegate::Get(const SdfPath& id, const TfToken& key)
     return VtValue();
 }
 
+HdPrimvarDescriptorVector
+HdNukeSceneDelegate::GetPrimvarDescriptors(const SdfPath& id, HdInterpolation interpolation)
+{
+    // Group_Object      -> HdInterpolationConstant
+    // Group_Primitives  -> HdInterpolationUniform
+    // Group_Points (?)  -> HdInterpolationVarying
+    // Group_Vertices    -> HdInterpolationVertex
+
+    const GeoInfo* geoInfo = _rprimGeoInfos[id];
+    TF_VERIFY(geoInfo);
+
+    HdPrimvarDescriptorVector primvars;
+    GroupType attrGroupType;
+
+    switch (interpolation) {
+        case HdInterpolationConstant:
+            attrGroupType = Group_Object;
+            break;
+        case HdInterpolationUniform:
+            attrGroupType = Group_Primitives;
+            break;
+        case HdInterpolationVarying:
+            attrGroupType = Group_Points;
+            break;
+        case HdInterpolationVertex:
+            attrGroupType = Group_Vertices;
+            break;
+        default:
+            return primvars;
+    }
+
+    for (const auto& attribCtx : geoInfo->get_cache_pointer()->attributes)
+    {
+        if (attribCtx.group == attrGroupType and not attribCtx.empty()) {
+            TfToken attribName(attribCtx.name);
+            TfToken role;
+            if (attribName == HdNukeTokens->Cf) {
+                role = HdPrimvarRoleTokens->color;
+            }
+            else if (attribName == HdNukeTokens->uv) {
+                role = HdPrimvarRoleTokens->textureCoordinate;
+            }
+            else if (attribName == HdNukeTokens->N) {
+                role = HdPrimvarRoleTokens->normal;
+            }
+            else if (attribName == HdNukeTokens->PW) {
+                role = HdPrimvarRoleTokens->point;
+            }
+            else {
+                role = HdPrimvarRoleTokens->none;
+            }
+
+            primvars.push_back(
+                HdPrimvarDescriptor(attribName, interpolation, role));
+        }
+    }
+
+    return primvars;
+}
 SdfPath
 HdNukeSceneDelegate::MakeRprimId(const GeoInfo& geoInfo) const
 {
@@ -152,8 +212,6 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
             _rprimGeoInfos[primId] = &sceneGeoPair.second;
 
             renderIndex.InsertRprim(HdPrimTypeTokens->mesh, this, primId);
-            // TODO: Cache information about attributes (scopes, etc.)
-            // Maybe Sync is the right place for this...?
         }
         else {
             // TODO: Support partially updating existing rprims. I think this
