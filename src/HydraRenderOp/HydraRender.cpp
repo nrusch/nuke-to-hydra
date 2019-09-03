@@ -101,7 +101,7 @@ struct HydraData
     HdRprimCollection primCollection;
 
     HydraData(TfToken pluginId)
-            : primCollection(TfToken("HydraNukeGeo"),
+            : primCollection(HdTokens->geometry,
                              HdReprSelector(HdReprTokens->refined))
     {
         std::cerr << "new HydraData" << std::endl;
@@ -381,7 +381,7 @@ HydraRender::_validate(bool for_real)
     cam->validate(for_real);
 
     // const Matrix4& nukeMatrix = cam->matrix();
-    GfMatrix4d camGfMatrix = DDToGfMatrix(cam->matrix());
+    GfMatrix4d camGfMatrix = DDToGfMatrix4d(cam->matrix());
 
     // TODO:
     // - Support horiz/vertical aperture offset (need to convert Nuke

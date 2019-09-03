@@ -1,6 +1,8 @@
 #ifndef HDNUKE_UTILS_H
 #define HDNUKE_UTILS_H
 
+#include <pxr/base/gf/matrix3f.h>
+#include <pxr/base/gf/matrix4f.h>
 #include <pxr/base/gf/matrix4d.h>
 
 #include <DDImage/Matrix4.h>
@@ -11,7 +13,21 @@ using namespace DD::Image;
 PXR_NAMESPACE_OPEN_SCOPE
 
 
-inline GfMatrix4d DDToGfMatrix(const Matrix4& nukeMatrix)
+inline GfMatrix3f DDToGfMatrix3f(const Matrix3& nukeMatrix)
+{
+    GfMatrix3f gfMatrix;
+    std::copy(nukeMatrix.array(), nukeMatrix.array() + 9, gfMatrix.data());
+    return gfMatrix;
+}
+
+inline GfMatrix4f DDToGfMatrix4f(const Matrix4& nukeMatrix)
+{
+    GfMatrix4f gfMatrix;
+    std::copy(nukeMatrix.array(), nukeMatrix.array() + 16, gfMatrix.data());
+    return gfMatrix;
+}
+
+inline GfMatrix4d DDToGfMatrix4d(const Matrix4& nukeMatrix)
 {
     GfMatrix4d gfMatrix;
     std::copy(nukeMatrix.array(), nukeMatrix.array() + 16, gfMatrix.data());

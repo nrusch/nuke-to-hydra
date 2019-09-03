@@ -73,7 +73,7 @@ HdNukeSceneDelegate::GetTransform(const SdfPath& id)
 {
     const GeoInfo* geoInfo = _rprimGeoInfos[id];
     TF_VERIFY(geoInfo);
-    return DDToGfMatrix(geoInfo->matrix);
+    return DDToGfMatrix4d(geoInfo->matrix);
 }
 
 VtValue
