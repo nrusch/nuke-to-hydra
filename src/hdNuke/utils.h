@@ -35,6 +35,17 @@ inline GfMatrix4d DDToGfMatrix4d(const Matrix4& nukeMatrix)
 }
 
 template <typename T>
+inline VtValue
+DDAttrToVtArrayValue(const Attribute* geoAttr)
+{
+    // XXX: Would be interesting to try using `Vt_ArrayForeignDataSource`...
+    VtArray<T> array;
+    auto* dataVec = static_cast<std::vector<T>*>(geoAttr->array());
+    array.assign(dataVec->begin(), dataVec->end());
+    return VtValue::Take(array);
+}
+
+template <typename T>
 inline void
 convertRenderBufferData(void* rawData, float* dest, size_t numPixels,
                         size_t numComponents, bool packed)

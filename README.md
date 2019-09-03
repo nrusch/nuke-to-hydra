@@ -25,8 +25,12 @@ Hydra rendering in Nuke.
 - Particles
     - Need a fast way to identify GeoInfo type without having to look at all
       child primitives.
+    - Need a render delegate that supports points in order to test this
 - Lights
-- Support remapping attribute names to align with USD/Hd standards (e.g. uv->st)
+- Remap known attribute names to align with USD/Hd standards
+    - uv -> st
+    - N -> HdTokens->normals
+    - Cf -> HdTokens->displayColor
 - Do we need to worry about `AttribContext.varying`?
 - Nuke material handling
     - Basic rprim colors from Nuke

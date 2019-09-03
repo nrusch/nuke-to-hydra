@@ -1,3 +1,7 @@
+#include <pxr/base/gf/vec2f.h>
+#include <pxr/base/gf/vec3f.h>
+#include <pxr/base/gf/vec4f.h>
+
 #include <pxr/usd/usdGeom/tokens.h>
 
 #include <pxr/imaging/pxOsd/tokens.h>
@@ -96,8 +100,74 @@ HdNukeSceneDelegate::Get(const SdfPath& id, const TfToken& key)
         return VtValue::Take(ret);
     }
 
-    TF_WARN("HdNukeSceneDelegate::Get : No implementation for key %s",
+    const Attribute* geoAttr = geoInfo->get_attribute(key.GetText());
+    if (ARCH_UNLIKELY(!geoAttr)) {
+        TF_WARN("HdNukeSceneDelegate::Get : No geo attribute matches key %s",
             key.GetText());
+        return VtValue();
+    }
+
+    if (geoAttr->size() == 1) {
+        void* rawData = geoAttr->array();
+        float* floatData = static_cast<float*>(rawData);
+
+        switch (geoAttr->type()) {
+            case FLOAT_ATTRIB:
+                return VtValue(floatData[0]);
+            case INT_ATTRIB:
+                return VtValue(static_cast<int32_t*>(rawData)[0]);
+            case STRING_ATTRIB:
+                return VtValue(std::string(static_cast<char**>(rawData)[0]));
+            case STD_STRING_ATTRIB:
+                return VtValue(static_cast<std::string*>(rawData)[0]);
+            case VECTOR2_ATTRIB:
+                return VtValue(GfVec2f(floatData));
+            case VECTOR3_ATTRIB:
+            case NORMAL_ATTRIB:
+                return VtValue(GfVec3f(floatData));
+            case VECTOR4_ATTRIB:
+                return VtValue(GfVec4f(floatData));
+            case MATRIX3_ATTRIB:
+                {
+                    GfMatrix3f gfMatrix;
+                    std::copy(floatData, floatData + 9, gfMatrix.data());
+                    return VtValue(gfMatrix);
+                }
+            case MATRIX4_ATTRIB:
+                {
+                    GfMatrix4f gfMatrix;
+                    std::copy(floatData, floatData + 16, gfMatrix.data());
+                    return VtValue(gfMatrix);
+                }
+        }
+    }
+    else {
+        switch (geoAttr->type()) {
+            case FLOAT_ATTRIB:
+                return DDAttrToVtArrayValue<float>(geoAttr);
+            case INT_ATTRIB:
+                return DDAttrToVtArrayValue<int32_t>(geoAttr);
+            case VECTOR2_ATTRIB:
+                return DDAttrToVtArrayValue<GfVec2f>(geoAttr);
+            case VECTOR3_ATTRIB:
+            case NORMAL_ATTRIB:
+                return DDAttrToVtArrayValue<GfVec3f>(geoAttr);
+            case VECTOR4_ATTRIB:
+                return DDAttrToVtArrayValue<GfVec4f>(geoAttr);
+            case MATRIX3_ATTRIB:
+                return DDAttrToVtArrayValue<GfMatrix3f>(geoAttr);
+            case MATRIX4_ATTRIB:
+                return DDAttrToVtArrayValue<GfMatrix4f>(geoAttr);
+            case STD_STRING_ATTRIB:
+                return DDAttrToVtArrayValue<std::string>(geoAttr);
+            // XXX: Ignoring char* array attrs for now... not sure whether they
+            // need special-case handling.
+            // case STRING_ATTRIB:
+        }
+    }
+
+    TF_WARN("HdNukeSceneDelegate::Get : Unhandled attribute type: %d",
+            geoAttr->type());
     return VtValue();
 }
 
