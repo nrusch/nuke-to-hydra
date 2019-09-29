@@ -13,12 +13,12 @@
 #include <pxr/usd/usdGeom/metrics.h>
 #include <pxr/usd/usdGeom/xform.h>
 
-#include <pxr/imaging/hd/renderBuffer.h>
-#include <pxr/imaging/hd/renderIndex.h>
-#include <pxr/imaging/hd/renderDelegate.h>
 #include <pxr/imaging/hd/engine.h>
-#include <pxr/imaging/hdx/rendererPlugin.h>
-#include <pxr/imaging/hdx/rendererPluginRegistry.h>
+#include <pxr/imaging/hd/renderBuffer.h>
+#include <pxr/imaging/hd/renderDelegate.h>
+#include <pxr/imaging/hd/rendererPlugin.h>
+#include <pxr/imaging/hd/rendererPluginRegistry.h>
+#include <pxr/imaging/hd/renderIndex.h>
 #include <pxr/imaging/hdx/taskController.h>
 #include <pxr/imaging/hdx/tokens.h>
 
@@ -60,7 +60,7 @@ _scanRendererPlugins()
 
     std::call_once(pluginInitFlag, [] {
         HfPluginDescVector plugins;
-        HdxRendererPluginRegistry::GetInstance().GetPluginDescs(&plugins);
+        HdRendererPluginRegistry::GetInstance().GetPluginDescs(&plugins);
 
         g_pluginIds.reserve(plugins.size());
         g_pluginKnobStrings.reserve(plugins.size());
@@ -91,7 +91,7 @@ _scanRendererPlugins()
 struct HydraData
 {
     HdRenderIndex* renderIndex = nullptr;
-    HdxRendererPlugin* rendererPlugin = nullptr;  // Ref-counted by Hydra
+    HdRendererPlugin* rendererPlugin = nullptr;  // Ref-counted by Hydra
     // HdRenderDelegate* renderDelegate = nullptr;
 
     HdNukeSceneDelegate* nukeDelegate = nullptr;
@@ -105,7 +105,7 @@ struct HydraData
                              HdReprSelector(HdReprTokens->refined))
     {
         std::cerr << "new HydraData" << std::endl;
-        rendererPlugin = HdxRendererPluginRegistry::GetInstance()
+        rendererPlugin = HdRendererPluginRegistry::GetInstance()
             .GetRendererPlugin(pluginId);
 
         HdRenderDelegate* renderDelegate = rendererPlugin->CreateRenderDelegate();
@@ -150,7 +150,7 @@ struct HydraData
                 // renderDelegate = nullptr;
             }
 
-            HdxRendererPluginRegistry::GetInstance().ReleasePlugin(rendererPlugin);
+            HdRendererPluginRegistry::GetInstance().ReleasePlugin(rendererPlugin);
             // rendererPlugin = nullptr;
         }
     }

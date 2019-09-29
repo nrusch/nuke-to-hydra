@@ -39,7 +39,6 @@ Hydra rendering in Nuke.
         - ExtComputations may be the answer...
 - Partial rprim updates.
     - Need to understand what the GeoInfo src and out hashes indicate
-    - Ask Foundry about this.
     - May need to re-think rprim IDs
     - If the source hash is the geo minus xforms or something, can we do
       instancing?

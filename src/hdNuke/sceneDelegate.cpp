@@ -41,7 +41,7 @@ HdNukeSceneDelegate::GetMeshTopology(const SdfPath& id)
     faceVertexIndices.reserve(static_cast<size_t>(geoInfo->vertices()));
 
     // XXX: If any face has more than this many vertices, we're going to die.
-    std::array<uint32_t, 8> faceVertices;
+    std::array<uint32_t, 16> faceVertices;
 
     // TODO: Might want to build these in SyncFromGeoOp so we can verify that
     // the GeoInfo is a mesh?
