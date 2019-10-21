@@ -25,6 +25,9 @@ typedef std::unordered_map<SdfPath, const GeoInfo*, SdfPath::Hash> RprimGeoInfoP
 typedef std::unordered_map<SdfPath, const GeoInfo&, SdfPath::Hash> RprimGeoInfoRefMap;
 
 
+class GfVec3f;
+
+
 class HdNukeSceneDelegate : public HdSceneDelegate
 {
 public:
@@ -52,10 +55,13 @@ public:
 
     SdfPath MakeRprimId(const GeoInfo& geoInfo) const;
 
+    void SetDefaultDisplayColor(GfVec3f color);
     void SyncFromGeoOp(GeoOp* op);
     void Clear();
 
 private:
+    GfVec3f _defaultDisplayColor = {0.18, 0.18, 0.18};
+
     Scene _scene;
 
     RprimGeoInfoPtrMap _rprimGeoInfos;

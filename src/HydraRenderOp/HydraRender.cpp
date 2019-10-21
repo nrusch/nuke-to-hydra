@@ -9,6 +9,7 @@
 
 #include <pxr/base/gf/camera.h>
 #include <pxr/base/gf/frustum.h>
+#include <pxr/base/gf/vec3f.h>
 
 #include <pxr/usd/usdGeom/metrics.h>
 #include <pxr/usd/usdGeom/xform.h>
@@ -257,6 +258,7 @@ private:
 
     // Knob storage
     int _selectedRenderer = 0;
+    float _displayColor[3] = {0.18, 0.18, 0.18};
     FormatPair _formats;
 
     // Temp - for testing
@@ -344,6 +346,8 @@ HydraRender::knobs(Knob_Callback f)
         k->enumerationKnob()->menu(g_pluginKnobStrings);
     }
 
+    Color_knob(f, _displayColor, "default_display_color", "default display color");
+
     File_knob(f, &_usdFilePath, "usd_file", "usd file");
 
 }
@@ -358,6 +362,12 @@ HydraRender::knob_changed(Knob* k)
     }
     if (k->is("renderer")) {
         resetRenderer();
+        return 1;
+    }
+    if (k->is("default_display_color")) {
+        if (_hdata->nukeDelegate) {
+            _hdata->nukeDelegate->SetDefaultDisplayColor(GfVec3f(_displayColor));
+        }
         return 1;
     }
     return Iop::knob_changed(k);
@@ -569,6 +579,7 @@ HydraRender::resetRenderer()
 {
     // TODO: Check for same renderer plugin
     _hdata.reset(new HydraData(g_pluginIds[_selectedRenderer]));
+    _hdata->nukeDelegate->SetDefaultDisplayColor(GfVec3f(_displayColor));
 
     taskController()->SetEnableSelection(false);
 

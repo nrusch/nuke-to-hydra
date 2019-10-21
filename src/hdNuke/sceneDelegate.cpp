@@ -99,10 +99,18 @@ HdNukeSceneDelegate::Get(const SdfPath& id, const TfToken& key)
         ret.assign(rawPoints, rawPoints + pointList->size());
         return VtValue::Take(ret);
     }
+    else if (key == HdTokens->displayColor) {
+        return VtValue(_defaultDisplayColor);
+    }
 
     const Attribute* geoAttr = geoInfo->get_attribute(key.GetText());
     if (ARCH_UNLIKELY(!geoAttr)) {
         TF_WARN("HdNukeSceneDelegate::Get : No geo attribute matches key %s",
+            key.GetText());
+        return VtValue();
+    }
+    if (!geoAttr->valid()) {
+        TF_WARN("HdNukeSceneDelegate::Get : Invalid attribute: %s",
             key.GetText());
         return VtValue();
     }
@@ -188,6 +196,9 @@ HdNukeSceneDelegate::GetPrimvarDescriptors(const SdfPath& id, HdInterpolation in
     switch (interpolation) {
         case HdInterpolationConstant:
             attrGroupType = Group_Object;
+            primvars.push_back(
+                HdPrimvarDescriptor(HdTokens->displayColor, interpolation,
+                                    HdPrimvarRoleTokens->color));
             break;
         case HdInterpolationUniform:
             attrGroupType = Group_Primitives;
@@ -237,6 +248,12 @@ HdNukeSceneDelegate::MakeRprimId(const GeoInfo& geoInfo) const
     buf << "src_" << std::hex << geoInfo.src_id().value();
     buf << "/out_" << geoInfo.out_id().value();
     return GEO_ROOT_ID.AppendPath(SdfPath(buf.str()));
+}
+
+void
+HdNukeSceneDelegate::SetDefaultDisplayColor(GfVec3f color)
+{
+    _defaultDisplayColor = color;
 }
 
 void
