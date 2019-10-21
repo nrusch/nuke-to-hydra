@@ -63,6 +63,7 @@ private:
     GfVec3f _defaultDisplayColor = {0.18, 0.18, 0.18};
 
     Scene _scene;
+    std::array<Hash, Group_Last> _geoHashes;
 
     RprimGeoInfoPtrMap _rprimGeoInfos;
 };

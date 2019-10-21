@@ -266,10 +266,43 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
         return;
     }
 
+    // Compute the dirty bits for existing Rprims from the op's geometry hashes
+    std::array<Hash, Group_Last> opGeoHashes;
+    uint32_t updateMask = 0;  // XXX: The mask enum in GeoInfo.h is untyped...
+
+    for (uint32_t i = 0; i < Group_Last; i++) {
+        const Hash groupHash(op->hash(i));
+        opGeoHashes[i] = groupHash;
+        if (groupHash != _geoHashes[i]) {
+            updateMask |= 1 << i;
+        }
+    }
+
+    HdDirtyBits dirtyBits;
+    if (updateMask == Mask_Matrix) {
+        dirtyBits = HdChangeTracker::DirtyTransform;
+    }
+    else {
+        dirtyBits = HdChangeTracker::AllDirty;
+        if (not (updateMask & (Mask_Primitives | Mask_Vertices))) {
+            dirtyBits &= ~HdChangeTracker::DirtyTopology;
+        }
+        if (not (updateMask & Mask_Points)) {
+            dirtyBits &= ~HdChangeTracker::DirtyPoints;
+        }
+
+        if (not (updateMask & Mask_Matrix)) {
+            dirtyBits &= ~HdChangeTracker::DirtyTransform;
+        }
+    }
+
     op->build_scene(_scene);
     GeometryList* geoList = _scene.object_list();
 
     std::cerr << "HdNukeSceneDelegate::SyncFromGeoOp" << std::endl;
+
+    // Replace stored hashes
+    opGeoHashes.swap(_geoHashes);
 
     if (geoList->size() == 0) {
         Clear();
@@ -301,18 +334,11 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
             renderIndex.InsertRprim(HdPrimTypeTokens->mesh, this, primId);
         }
         else {
-            // TODO: Support partially updating existing rprims. I think this
-            // will require an awareness of src and out hashes for each rprim
-            // (not necessarily in a hierarchy), and what to do if only one of
-            // them changes. Thus, we will need to verify how modifying
-            // different aspects of the GeoInfo affect those hashes. Probably
-            // worth asking Foundry about this.
-            // We may also need to rethink the prim IDs, particularly if the
-            // output hash changes for things like transform, but the source
-            // stays the same if the topology data is the same.
+            // TODO: Support partially updating existing rprims.
+            // We may also need to rethink the prim IDs
             // What about motion/deformation?
 
-            changeTracker.MarkRprimDirty(primId);
+            changeTracker.MarkRprimDirty(primId, dirtyBits);
         }
     }
 
