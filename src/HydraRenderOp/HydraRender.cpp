@@ -438,13 +438,12 @@ HydraRender::renderStripe(ImagePlane& plane)
             _stagePathChanged = false;
         }
 
-        auto tasks = taskController()->GetRenderingTasks();
-        _engine.Execute(_hdata->renderIndex, &tasks);
 
-        while (!taskController()->IsConverged())
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(75));
+        auto tasks = taskController()->GetRenderingTasks();
+        do {
+            _engine.Execute(_hdata->renderIndex, &tasks);
         }
+        while (!taskController()->IsConverged());
 
         _needRender = false;
 
