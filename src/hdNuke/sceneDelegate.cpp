@@ -6,11 +6,18 @@
 
 #include <pxr/imaging/pxOsd/tokens.h>
 
+#include <DDImage/NodeI.h>
+
 #include "sceneDelegate.h"
 #include "tokens.h"
 
 
 PXR_NAMESPACE_OPEN_SCOPE
+
+
+static SdfPath DELEGATE_ID(TfToken("/Nuke", TfToken::Immortal));
+static SdfPath GEO_ROOT = DELEGATE_ID.AppendChild(TfToken("Geo"));
+static SdfPath LIGHT_ROOT = DELEGATE_ID.AppendChild(TfToken("Lights"));
 
 
 HdNukeSceneDelegate::HdNukeSceneDelegate(HdRenderIndex* renderIndex)
@@ -75,9 +82,20 @@ HdNukeSceneDelegate::GetMeshTopology(const SdfPath& id)
 GfMatrix4d
 HdNukeSceneDelegate::GetTransform(const SdfPath& id)
 {
-    const GeoInfo* geoInfo = _rprimGeoInfos[id];
-    TF_VERIFY(geoInfo);
-    return DDToGfMatrix4d(geoInfo->matrix);
+    if (id.HasPrefix(GEO_ROOT)) {
+        const GeoInfo* geoInfo = _rprimGeoInfos[id];
+        TF_VERIFY(geoInfo);
+        return DDToGfMatrix4d(geoInfo->matrix);
+    }
+    else if (id.HasPrefix(LIGHT_ROOT)) {
+        const LightOp* light = _lightOps[id];
+        TF_VERIFY(light);
+        return DDToGfMatrix4d(light->matrix());
+    }
+
+    TF_WARN("HdNukeSceneDelegate::GetTransform : Unrecognized prim id: %s",
+        id.GetText());
+    return GfMatrix4d(1);
 }
 
 VtValue
@@ -247,7 +265,7 @@ HdNukeSceneDelegate::MakeRprimId(const GeoInfo& geoInfo) const
     std::ostringstream buf;
     buf << "src_" << std::hex << geoInfo.src_id().value();
     buf << "/out_" << geoInfo.out_id().value();
-    return GEO_ROOT_ID.AppendPath(SdfPath(buf.str()));
+    return GEO_ROOT.AppendPath(SdfPath(buf.str()));
 }
 
 void
@@ -345,6 +363,42 @@ HdNukeSceneDelegate::SyncGeometry(GeoOp* op, GeometryList* geoList)
 }
 
 void
+HdNukeSceneDelegate::SyncLights(std::vector<LightContext*> lights)
+{
+    HdRenderIndex& renderIndex = GetRenderIndex();
+
+    for (const LightContext* lightCtx : lights)
+    {
+        LightOp* lightOp = lightCtx->light();
+
+        SdfPath lightId = LIGHT_ROOT.AppendChild(
+            TfToken(lightOp->getNode()->getNodeName()));
+
+        TfToken lightType;
+        switch (lightOp->lightType()) {
+            case LightOp::eDirectionalLight:
+                lightType = HdPrimTypeTokens->distantLight;
+                break;
+            case LightOp::eSpotLight:
+                lightType = HdPrimTypeTokens->diskLight;
+                break;
+            case LightOp::ePointLight:
+                lightType = HdPrimTypeTokens->sphereLight;
+                break;
+            case LightOp::eOtherLight:
+                // XXX: The only other current type is an environment light...
+                lightType = HdPrimTypeTokens->domeLight;
+                break;
+            default:
+                continue;
+        }
+
+        renderIndex.InsertSprim(lightType, this, lightId);
+        _lightOps[lightId] = lightOp;
+    }
+}
+
+void
 HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
 {
     TF_VERIFY(op);
@@ -358,6 +412,8 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
     GeometryList* geoList = _scene.object_list();
 
     SyncGeometry(op, geoList);
+
+    SyncLights(_scene.lights);
 }
 
 void
@@ -371,7 +427,7 @@ void
 HdNukeSceneDelegate::ClearGeo()
 {
     _rprimGeoInfos.clear();
-    GetRenderIndex().RemoveSubtree(GEO_ROOT_ID, this);
+    GetRenderIndex().RemoveSubtree(GEO_ROOT, this);
 }
 
 

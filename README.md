@@ -24,7 +24,6 @@ Hydra rendering in Nuke.
     - Need a fast way to identify GeoInfo type without having to look at all
       child primitives.
     - Need a render delegate that supports points in order to test this
-- Lights
 - Remap known attribute names to align with USD/Hd standards
     - uv -> st
     - N -> HdTokens->normals

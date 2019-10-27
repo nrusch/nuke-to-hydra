@@ -14,15 +14,14 @@
 
 using namespace DD::Image;
 
+
+
 PXR_NAMESPACE_OPEN_SCOPE
-
-
-static SdfPath DELEGATE_ID(TfToken("/Nuke_Scene", TfToken::Immortal));
-static SdfPath GEO_ROOT_ID = DELEGATE_ID.AppendChild(TfToken("Geo"));
 
 
 typedef std::unordered_map<SdfPath, const GeoInfo*, SdfPath::Hash> RprimGeoInfoPtrMap;
 typedef std::unordered_map<SdfPath, const GeoInfo&, SdfPath::Hash> RprimGeoInfoRefMap;
+typedef std::unordered_map<SdfPath, const LightOp*, SdfPath::Hash> LightOpPtrMap;
 
 
 class GfVec3f;
@@ -58,6 +57,7 @@ public:
     void SetDefaultDisplayColor(GfVec3f color);
     void SyncFromGeoOp(GeoOp* op);
     void SyncGeometry(GeoOp* op, GeometryList* geoList);
+    void SyncLights(std::vector<LightContext*> lights);
     void ClearAll();
     void ClearGeo();
 
@@ -68,6 +68,7 @@ private:
     std::array<Hash, Group_Last> _geoHashes;
 
     RprimGeoInfoPtrMap _rprimGeoInfos;
+    LightOpPtrMap _lightOps;
 };
 
 
