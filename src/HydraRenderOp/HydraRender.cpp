@@ -417,7 +417,7 @@ HydraRender::_validate(bool for_real)
         _hdata->nukeDelegate->SyncFromGeoOp(geoOp);
     }
     else {
-        _hdata->nukeDelegate->Clear();
+        _hdata->nukeDelegate->ClearAll();
     }
 
     _needRender = true;

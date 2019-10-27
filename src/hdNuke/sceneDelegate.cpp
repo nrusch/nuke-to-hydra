@@ -257,14 +257,9 @@ HdNukeSceneDelegate::SetDefaultDisplayColor(GfVec3f color)
 }
 
 void
-HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
+HdNukeSceneDelegate::SyncGeometry(GeoOp* op, GeometryList* geoList)
 {
-    TF_VERIFY(op);
-
-    if (not op->valid()) {
-        TF_CODING_ERROR("SyncFromGeoOp called with invalid GeoOp");
-        return;
-    }
+    std::cerr << "  GeoOp rebuild_mask: " << op->rebuild_mask() << std::endl;
 
     // Compute the dirty bits for existing Rprims from the op's geometry hashes
     std::array<Hash, Group_Last> opGeoHashes;
@@ -278,6 +273,13 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
         }
     }
 
+    // Replace stored hashes
+    opGeoHashes.swap(_geoHashes);
+
+    if (geoList->size() == 0) {
+        ClearGeo();
+        return;
+    }
     HdDirtyBits dirtyBits;
     if (updateMask == Mask_Matrix) {
         dirtyBits = HdChangeTracker::DirtyTransform;
@@ -294,19 +296,6 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
         if (not (updateMask & Mask_Matrix)) {
             dirtyBits &= ~HdChangeTracker::DirtyTransform;
         }
-    }
-
-    op->build_scene(_scene);
-    GeometryList* geoList = _scene.object_list();
-
-    std::cerr << "HdNukeSceneDelegate::SyncFromGeoOp" << std::endl;
-
-    // Replace stored hashes
-    opGeoHashes.swap(_geoHashes);
-
-    if (geoList->size() == 0) {
-        Clear();
-        return;
     }
 
     // Generate Rprim IDs for the GeoInfos in the scene
@@ -343,7 +332,8 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
     }
 
     // Remove Rprims whose IDs are not in the new scene.
-    for (auto it = _rprimGeoInfos.begin(); it != _rprimGeoInfos.end(); ) {
+    for (auto it = _rprimGeoInfos.begin(); it != _rprimGeoInfos.end(); )
+    {
         if (sceneGeoInfos.find(it->first) == sceneGeoInfos.end()) {
             renderIndex.RemoveRprim(it->first);
             it = _rprimGeoInfos.erase(it);
@@ -355,9 +345,31 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
 }
 
 void
-HdNukeSceneDelegate::Clear()
+HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
 {
-    std::cerr << "HdNukeSceneDelegate::Clear" << std::endl;
+    TF_VERIFY(op);
+
+    if (not op->valid()) {
+        TF_CODING_ERROR("SyncFromGeoOp called with invalid GeoOp");
+        return;
+    }
+
+    op->build_scene(_scene);
+    GeometryList* geoList = _scene.object_list();
+
+    SyncGeometry(op, geoList);
+}
+
+void
+HdNukeSceneDelegate::ClearAll()
+{
+
+    ClearGeo();
+}
+
+void
+HdNukeSceneDelegate::ClearGeo()
+{
     _rprimGeoInfos.clear();
     GetRenderIndex().RemoveSubtree(GEO_ROOT_ID, this);
 }

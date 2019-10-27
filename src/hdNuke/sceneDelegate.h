@@ -57,7 +57,9 @@ public:
 
     void SetDefaultDisplayColor(GfVec3f color);
     void SyncFromGeoOp(GeoOp* op);
-    void Clear();
+    void SyncGeometry(GeoOp* op, GeometryList* geoList);
+    void ClearAll();
+    void ClearGeo();
 
 private:
     GfVec3f _defaultDisplayColor = {0.18, 0.18, 0.18};
