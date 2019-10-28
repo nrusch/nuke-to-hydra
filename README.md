@@ -13,8 +13,6 @@ Hydra rendering in Nuke.
 - Manual abort mechanism for renders (cancel button?)
     - Keep an eye out for any way to hook a progress callback to Hydra
 - Compare HydraData struct with UsdImagingGLEngine render plugin swapping code
-- Look up renderer plugin by ID instead of keeping an ID token array
-    - Can we store a string instead of an index?
 - Storm support (2D and/or 3D)
 - Different rendering modes (wireframe, etc)?
 - Dynamic knobs for render delegate settings

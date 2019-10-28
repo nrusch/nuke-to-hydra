@@ -91,8 +91,8 @@ _scanRendererPlugins()
 
 struct HydraData
 {
-    HdRenderIndex* renderIndex = nullptr;
     HdRendererPlugin* rendererPlugin = nullptr;  // Ref-counted by Hydra
+    HdRenderIndex* renderIndex = nullptr;
     // HdRenderDelegate* renderDelegate = nullptr;
 
     HdNukeSceneDelegate* nukeDelegate = nullptr;
@@ -101,14 +101,11 @@ struct HydraData
     HdxTaskController* taskController = nullptr;
     HdRprimCollection primCollection;
 
-    HydraData(TfToken pluginId)
-            : primCollection(HdTokens->geometry,
+    HydraData(HdRendererPlugin* pluginPtr)
+            : rendererPlugin(pluginPtr),
+              primCollection(HdTokens->geometry,
                              HdReprSelector(HdReprTokens->refined))
     {
-        std::cerr << "new HydraData" << std::endl;
-        rendererPlugin = HdRendererPluginRegistry::GetInstance()
-            .GetRendererPlugin(pluginId);
-
         HdRenderDelegate* renderDelegate = rendererPlugin->CreateRenderDelegate();
         renderIndex = HdRenderIndex::New(renderDelegate);
 
@@ -209,6 +206,22 @@ struct HydraData
             usdDelegate->Populate(prim);
         }
     }
+
+    static HydraData* Create(TfToken pluginId)
+    {
+        auto& pluginRegistry = HdRendererPluginRegistry::GetInstance();
+        if (not pluginRegistry.IsRegisteredPlugin(pluginId)) {
+            return nullptr;
+        }
+
+        HdRendererPlugin* plugin = pluginRegistry.GetRendererPlugin(pluginId);
+        if (not plugin->IsSupported()) {
+            pluginRegistry.ReleasePlugin(plugin);
+            return nullptr;
+        }
+
+        return new HydraData(plugin);
+    }
 };
 
 
@@ -246,20 +259,24 @@ protected:
         return _hdata->taskController;
     }
 
-    void resetRenderer();
+    void initRenderer();
     std::vector<HdRenderBuffer*> getRenderBuffers() const;
     void copyBufferToImagePlane(HdRenderBuffer* buffer, ImagePlane& plane);
 
 private:
     HdEngine _engine;
     std::unique_ptr<HydraData> _hdata;
+    std::string _activeRenderer;
     bool _needRender = false;
     Lock _engineLock;
 
     // Knob storage
-    int _selectedRenderer = 0;
-    float _displayColor[3] = {0.18, 0.18, 0.18};
     FormatPair _formats;
+    // We persist the selected renderer as a string rather than just an index,
+    // since the available renderers may change between sessions.
+    std::string _rendererId;
+    int _rendererIndex = 0;
+    float _displayColor[3] = {0.18, 0.18, 0.18};
 
     // Temp - for testing
     const char* _usdFilePath;
@@ -280,7 +297,10 @@ HydraRender::HydraRender(Node* node)
           _usdFilePath("")
 {
     _scanRendererPlugins();
-    resetRenderer();
+
+    if (not g_pluginIds.empty()) {
+        _rendererId = g_pluginIds[0];
+    }
 
     inputs(2);
 }
@@ -340,8 +360,11 @@ HydraRender::knobs(Knob_Callback f)
 {
     Format_knob(f, &_formats, "format");
 
-    Knob* k = Enumeration_knob(f, &_selectedRenderer, 0, "renderer");
-    SetFlags(f, Knob::ALWAYS_SAVE);
+    String_knob(f, &_rendererId, "renderer_id");
+    SetFlags(f, Knob::INVISIBLE | Knob::ALWAYS_SAVE | Knob::KNOB_CHANGED_ALWAYS);
+
+    Knob* k = Enumeration_knob(f, &_rendererIndex, 0, "renderer");
+    SetFlags(f, Knob::DO_NOT_WRITE | Knob::NO_RERENDER | Knob::EXPAND_TO_CONTENTS);
     if (f.makeKnobs()) {
         k->enumerationKnob()->menu(g_pluginKnobStrings);
     }
@@ -349,7 +372,6 @@ HydraRender::knobs(Knob_Callback f)
     Color_knob(f, _displayColor, "default_display_color", "default display color");
 
     File_knob(f, &_usdFilePath, "usd_file", "usd file");
-
 }
 
 int
@@ -361,7 +383,25 @@ HydraRender::knob_changed(Knob* k)
         return 1;
     }
     if (k->is("renderer")) {
-        resetRenderer();
+        std::string newId = k->enumerationKnob()->getItemValueString(_rendererIndex);
+        knob("renderer_id")->set_text(newId.c_str());
+        return 1;
+    }
+    if (k->is("renderer_id")) {
+        const char* newId = k->get_text();
+        Knob* menu = knob("renderer");
+        if (g_pluginIds[static_cast<size_t>(menu->get_value())] != newId) {
+            size_t i = 0;
+            for (const auto& pluginId : g_pluginIds) {
+                if (pluginId == newId) {
+                    menu->set_flag(Knob::NO_KNOB_CHANGED);
+                    menu->set_value(i);
+                    menu->clear_flag(Knob::NO_KNOB_CHANGED);
+                    break;
+                }
+                i++;
+            }
+        }
         return 1;
     }
     if (k->is("default_display_color")) {
@@ -377,6 +417,19 @@ void
 HydraRender::_validate(bool for_real)
 {
     std::cerr << "HydraRender::_validate" << std::endl;
+
+    initRenderer();
+
+    if (not _hdata) {
+        if (_rendererId.empty()) {
+            error("Empty renderer_id");
+        }
+        else {
+            error("Renderer plugin %s is unavailable or unsupported in the "
+                  "current environment", _rendererId.c_str());
+        }
+        return;
+    }
 
     info_.full_size_format(*_formats.fullSizeFormat());
     info_.format(*_formats.format());
@@ -574,10 +627,18 @@ HydraRender::copyBufferToImagePlane(HdRenderBuffer* buffer, ImagePlane& plane)
 }
 
 void
-HydraRender::resetRenderer()
+HydraRender::initRenderer()
 {
-    // TODO: Check for same renderer plugin
-    _hdata.reset(new HydraData(g_pluginIds[_selectedRenderer]));
+    if (_activeRenderer == _rendererId) {
+        return;
+    }
+    auto* dataPtr = HydraData::Create(TfToken(_rendererId));
+    _hdata.reset(dataPtr);
+    _activeRenderer = _rendererId;
+    if (dataPtr == nullptr) {
+        return;
+    }
+
     _hdata->nukeDelegate->SetDefaultDisplayColor(GfVec3f(_displayColor));
 
     taskController()->SetEnableSelection(false);
