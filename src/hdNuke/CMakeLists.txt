@@ -1,4 +1,5 @@
 add_library(${HDNUKE_LIB_NAME} SHARED
+    renderStack.cpp
     sceneDelegate.cpp
     tokens.cpp)
 
