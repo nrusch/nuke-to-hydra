@@ -107,6 +107,11 @@ public:
     static const Iop::Description desc;
 
 protected:
+    inline HdNukeSceneDelegate* sceneDelegate() const
+    {
+        return _hydra->nukeDelegate;
+    }
+
     inline HdxTaskController* taskController() const
     {
         return _hydra->taskController;
@@ -258,9 +263,7 @@ HydraRender::knob_changed(Knob* k)
         return 1;
     }
     if (k->is("default_display_color")) {
-        if (_hydra->nukeDelegate) {
-            _hydra->nukeDelegate->SetDefaultDisplayColor(GfVec3f(_displayColor));
-        }
+        sceneDelegate()->SetDefaultDisplayColor(GfVec3f(_displayColor));
         return 1;
     }
     return Iop::knob_changed(k);
@@ -320,10 +323,10 @@ HydraRender::_validate(bool for_real)
 
     if (GeoOp* geoOp = dynamic_cast<GeoOp*>(Op::input(0))) {
         geoOp->validate(for_real);
-        _hydra->nukeDelegate->SyncFromGeoOp(geoOp);
+        sceneDelegate()->SyncFromGeoOp(geoOp);
     }
     else {
-        _hydra->nukeDelegate->ClearAll();
+        sceneDelegate()->ClearAll();
     }
 
     _needRender = true;
@@ -493,7 +496,7 @@ HydraRender::initRenderer()
         return;
     }
 
-    _hydra->nukeDelegate->SetDefaultDisplayColor(GfVec3f(_displayColor));
+    sceneDelegate()->SetDefaultDisplayColor(GfVec3f(_displayColor));
 
     taskController()->SetEnableSelection(false);
 

@@ -29,16 +29,12 @@ Hydra rendering in Nuke.
     - N -> HdTokens->normals
     - Cf -> HdTokens->displayColor
 - Do we need to worry about `AttribContext.varying`?
-- Nuke material handling
+- Materials
+    - UsdPreviewSurface
     - Basic rprim colors from Nuke
-    - Texturing support. Can we use Nuke's material evaluation to generate
-      texture buffers, and then somehow hand those over?
-        - ExtComputations may be the answer...
-- Partial rprim updates.
-    - Need to understand what the GeoInfo src and out hashes indicate
-    - May need to re-think rprim IDs
-    - If the source hash is the geo minus xforms or something, can we do
-      instancing?
+    - Texturing support.
+        - Render Nuke's material Iops to texture buffers (or temp files)
+        - ExtComputations may be part of it...
 - Time handling (for motion blur, etc.)
 
 #### Misc Notes

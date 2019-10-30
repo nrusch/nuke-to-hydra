@@ -29,7 +29,6 @@ HdNukeSceneDelegate::HdNukeSceneDelegate(HdRenderIndex* renderIndex)
 HdMeshTopology
 HdNukeSceneDelegate::GetMeshTopology(const SdfPath& id)
 {
-    std::cerr << "HdNukeSceneDelegate::GetMeshTopology : " << id << std::endl;
     const GeoInfo* geoInfo = _rprimGeoInfos[id];
     TF_VERIFY(geoInfo);
 
@@ -272,6 +271,14 @@ void
 HdNukeSceneDelegate::SetDefaultDisplayColor(GfVec3f color)
 {
     _defaultDisplayColor = color;
+
+    if (not _rprimGeoInfos.empty()) {
+        HdChangeTracker& tracker = GetRenderIndex().GetChangeTracker();
+        for (const auto& rprimPair : _rprimGeoInfos)
+        {
+            tracker.MarkPrimvarDirty(rprimPair.first, HdTokens->displayColor);
+        }
+    }
 }
 
 void
@@ -298,23 +305,30 @@ HdNukeSceneDelegate::SyncGeometry(GeoOp* op, GeometryList* geoList)
         ClearGeo();
         return;
     }
-    HdDirtyBits dirtyBits;
-    if (updateMask == Mask_Matrix) {
-        dirtyBits = HdChangeTracker::DirtyTransform;
-    }
-    else {
-        dirtyBits = HdChangeTracker::AllDirty;
-        if (not (updateMask & (Mask_Primitives | Mask_Vertices))) {
-            dirtyBits &= ~HdChangeTracker::DirtyTopology;
-        }
-        if (not (updateMask & Mask_Points)) {
-            dirtyBits &= ~HdChangeTracker::DirtyPoints;
-        }
 
-        if (not (updateMask & Mask_Matrix)) {
-            dirtyBits &= ~HdChangeTracker::DirtyTransform;
-        }
+    HdDirtyBits dirtyBits = HdChangeTracker::Clean;
+    if (updateMask & (Mask_Primitives | Mask_Vertices)) {
+        dirtyBits |= (HdChangeTracker::DirtyTopology
+                      | HdChangeTracker::DirtyNormals
+                      | HdChangeTracker::DirtyWidths);
     }
+    if (updateMask & Mask_Points) {
+        dirtyBits |= HdChangeTracker::DirtyPoints;
+    }
+
+    if (updateMask & Mask_Matrix) {
+        dirtyBits |= HdChangeTracker::DirtyTransform;
+    }
+
+    if (updateMask & Mask_Matrix) {
+        dirtyBits |= HdChangeTracker::DirtyTransform;
+    }
+
+    if (updateMask & Mask_Attributes) {
+        dirtyBits |= HdChangeTracker::DirtyPrimvar;
+    }
+
+    bool anyDirtyBits = dirtyBits != HdChangeTracker::Clean;
 
     // Generate Rprim IDs for the GeoInfos in the scene
     RprimGeoInfoRefMap sceneGeoInfos;
@@ -341,11 +355,10 @@ HdNukeSceneDelegate::SyncGeometry(GeoOp* op, GeometryList* geoList)
             renderIndex.InsertRprim(HdPrimTypeTokens->mesh, this, primId);
         }
         else {
-            // TODO: Support partially updating existing rprims.
-            // We may also need to rethink the prim IDs
-            // What about motion/deformation?
+            if (anyDirtyBits) {
+                changeTracker.MarkRprimDirty(primId, dirtyBits);
 
-            changeTracker.MarkRprimDirty(primId, dirtyBits);
+            }
         }
     }
 

@@ -52,7 +52,8 @@ HydraRenderStack::~HydraRenderStack()
     }
 }
 
-/*static*/ HydraRenderStack*
+/* static */
+HydraRenderStack*
 HydraRenderStack::Create(TfToken pluginId)
 {
     auto& pluginRegistry = HdRendererPluginRegistry::GetInstance();
