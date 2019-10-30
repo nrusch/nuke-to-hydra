@@ -4,6 +4,7 @@
 
 #include <pxr/usd/usdGeom/tokens.h>
 
+#include <pxr/imaging/hd/renderIndex.h>
 #include <pxr/imaging/pxOsd/tokens.h>
 
 #include <DDImage/NodeI.h>
@@ -290,7 +291,8 @@ HdNukeSceneDelegate::SyncGeometry(GeoOp* op, GeometryList* geoList)
     std::array<Hash, Group_Last> opGeoHashes;
     uint32_t updateMask = 0;  // XXX: The mask enum in GeoInfo.h is untyped...
 
-    for (uint32_t i = 0; i < Group_Last; i++) {
+    for (uint32_t i = 0; i < Group_Last; i++)
+    {
         const Hash groupHash(op->hash(i));
         opGeoHashes[i] = groupHash;
         if (groupHash != _geoHashes[i]) {
@@ -441,6 +443,9 @@ HdNukeSceneDelegate::ClearGeo()
 {
     _rprimGeoInfos.clear();
     GetRenderIndex().RemoveSubtree(GEO_ROOT, this);
+    for (auto& hash : _geoHashes) {
+        hash.reset();
+    }
 }
 
 

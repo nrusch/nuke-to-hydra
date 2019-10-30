@@ -229,6 +229,10 @@ HydraRender::knobs(Knob_Callback f)
 
     Color_knob(f, _displayColor, "default_display_color", "default display color");
 
+    Button(f, "force_update", "force update");
+    SetFlags(f, Knob::STARTLINE);
+
+    Divider(f, "XXX: for testing");
     File_knob(f, &_usdFilePath, "usd_file", "usd file");
 }
 
@@ -264,6 +268,11 @@ HydraRender::knob_changed(Knob* k)
     }
     if (k->is("default_display_color")) {
         sceneDelegate()->SetDefaultDisplayColor(GfVec3f(_displayColor));
+        return 1;
+    }
+    if (k->is("force_update")) {
+        sceneDelegate()->ClearAll();
+        invalidate();
         return 1;
     }
     return Iop::knob_changed(k);

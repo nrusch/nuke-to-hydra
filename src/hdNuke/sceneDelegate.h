@@ -3,7 +3,6 @@
 
 #include <pxr/pxr.h>
 
-#include <pxr/imaging/hd/renderIndex.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 
 #include <DDImage/GeoOp.h>
@@ -24,7 +23,9 @@ typedef std::unordered_map<SdfPath, const GeoInfo&, SdfPath::Hash> RprimGeoInfoR
 typedef std::unordered_map<SdfPath, const LightOp*, SdfPath::Hash> LightOpPtrMap;
 
 
+// Forward declarations
 class GfVec3f;
+class HdRenderIndex;
 
 
 class HdNukeSceneDelegate : public HdSceneDelegate

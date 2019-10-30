@@ -39,5 +39,7 @@ Hydra rendering in Nuke.
 
 #### Misc Notes
 
+- Might need to implement fallback behavior for (e.g.) lights based on prim
+  types supported by the selected renderer.
 - Need other (more capable) render delegates to test
 - Op to draw USD stage into the 3D viewer without creating geo
