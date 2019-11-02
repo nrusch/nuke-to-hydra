@@ -53,14 +53,18 @@ public:
     HdPrimvarDescriptorVector
     GetPrimvarDescriptors(const SdfPath& id, HdInterpolation interpolation) override;
 
+    VtValue GetLightParamValue(const SdfPath &id, const TfToken& paramName) override;
+
     SdfPath MakeRprimId(const GeoInfo& geoInfo) const;
 
     void SetDefaultDisplayColor(GfVec3f color);
     void SyncFromGeoOp(GeoOp* op);
     void SyncGeometry(GeoOp* op, GeometryList* geoList);
     void SyncLights(std::vector<LightContext*> lights);
+
     void ClearAll();
     void ClearGeo();
+    void ClearLights();
 
 private:
     GfVec3f _defaultDisplayColor = {0.18, 0.18, 0.18};

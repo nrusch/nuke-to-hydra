@@ -4,6 +4,7 @@
 
 #include <pxr/usd/usdGeom/tokens.h>
 
+#include <pxr/imaging/hd/light.h>
 #include <pxr/imaging/hd/renderIndex.h>
 #include <pxr/imaging/pxOsd/tokens.h>
 
@@ -259,6 +260,38 @@ HdNukeSceneDelegate::GetPrimvarDescriptors(const SdfPath& id, HdInterpolation in
 
     return primvars;
 }
+
+VtValue
+HdNukeSceneDelegate::GetLightParamValue(const SdfPath& id, const TfToken& paramName)
+{
+    const LightOp* lightOp = _lightOps[id];
+    TF_VERIFY(lightOp);
+
+    if (paramName == HdLightTokens->color) {
+        auto& pixel = lightOp->color();
+        return VtValue(
+            GfVec3f(pixel[Chan_Red], pixel[Chan_Green], pixel[Chan_Blue]));
+    }
+    else if (paramName == HdLightTokens->intensity) {
+        return VtValue(lightOp->intensity());
+    }
+    else if (paramName == HdLightTokens->radius) {
+        return VtValue(lightOp->sample_width());
+    }
+    else if (paramName == HdLightTokens->shadowColor) {
+        return VtValue(GfVec3f(0));
+    }
+    else if (paramName == HdLightTokens->shadowEnable) {
+        return VtValue(lightOp->cast_shadows());
+    }
+    else if (paramName == HdLightTokens->exposure or
+             paramName == HdLightTokens->diffuse or
+             paramName == HdLightTokens->specular) {
+        return VtValue(1.0f);
+    }
+    return VtValue();
+}
+
 SdfPath
 HdNukeSceneDelegate::MakeRprimId(const GeoInfo& geoInfo) const
 {
@@ -389,6 +422,12 @@ HdNukeSceneDelegate::SyncLights(std::vector<LightContext*> lights)
         SdfPath lightId = LIGHT_ROOT.AppendChild(
             TfToken(lightOp->getNode()->getNodeName()));
 
+        // TODO: Implement light dirtying
+        if (_lightOps.find(lightId) != _lightOps.end()) {
+            TF_CODING_ERROR("Skipping duplicate light ID: %s", lightId.GetText());
+            continue;
+        }
+
         TfToken lightType;
         switch (lightOp->lightType()) {
             case LightOp::eDirectionalLight:
@@ -436,6 +475,8 @@ HdNukeSceneDelegate::ClearAll()
 {
 
     ClearGeo();
+
+    ClearLights();
 }
 
 void
@@ -446,6 +487,13 @@ HdNukeSceneDelegate::ClearGeo()
     for (auto& hash : _geoHashes) {
         hash.reset();
     }
+}
+
+void
+HdNukeSceneDelegate::ClearLights()
+{
+    _lightOps.clear();
+    GetRenderIndex().RemoveSubtree(LIGHT_ROOT, this);
 }
 
 

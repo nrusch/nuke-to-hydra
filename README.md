@@ -19,6 +19,8 @@ Hydra rendering in Nuke.
 
 #### Scene Delegate
 
+- Implement owner clases for geo, lights, etc.
+- Light dirtying
 - GetExtent impl
 - Particles
     - Need a fast way to identify GeoInfo type without having to look at all
