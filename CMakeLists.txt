@@ -8,7 +8,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" "$ENV{CMAKE_MODULE_PAT
 find_package(Nuke REQUIRED)
 
 
-include(pxrTargets)
+include(pxrConfig)
 
 message(STATUS "USD_ROOT: ${USD_ROOT}")
 

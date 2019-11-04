@@ -8,22 +8,20 @@
 #include <DDImage/GeoOp.h>
 #include <DDImage/Scene.h>
 
-#include "utils.h"
+#include "geoAdapter.h"
+#include "lightAdapter.h"
+#include "sharedState.h"
 
 
 using namespace DD::Image;
 
 
 
+
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 
-typedef std::unordered_map<SdfPath, const GeoInfo*, SdfPath::Hash> RprimGeoInfoPtrMap;
-typedef std::unordered_map<SdfPath, const GeoInfo&, SdfPath::Hash> RprimGeoInfoRefMap;
-typedef std::unordered_map<SdfPath, const LightOp*, SdfPath::Hash> LightOpPtrMap;
-
-
-// Forward declarations
 class GfVec3f;
 class HdRenderIndex;
 
@@ -38,9 +36,8 @@ public:
 
 
 
-    bool IsEnabled(const TfToken& option) const override
-    {
-        // Currently this is only called with HdOptionTokens->parallelRprimSync.
+    // Currently this is only called with HdOptionTokens->parallelRprimSync.
+    bool IsEnabled(const TfToken& option) const override {
         return false;
     }
 
@@ -51,13 +48,20 @@ public:
     VtValue Get(const SdfPath& id, const TfToken& key) override;
 
     HdPrimvarDescriptorVector
-    GetPrimvarDescriptors(const SdfPath& id, HdInterpolation interpolation) override;
+    GetPrimvarDescriptors(const SdfPath& id,
+                          HdInterpolation interpolation) override;
 
-    VtValue GetLightParamValue(const SdfPath &id, const TfToken& paramName) override;
+    VtValue GetLightParamValue(const SdfPath &id,
+                               const TfToken& paramName) override;
+
 
     SdfPath MakeRprimId(const GeoInfo& geoInfo) const;
 
+    HdNukeGeoAdapterPtr GetGeoAdapter(const SdfPath& id) const;
+    HdNukeLightAdapterPtr GetLightAdapter(const SdfPath& id) const;
+
     void SetDefaultDisplayColor(GfVec3f color);
+
     void SyncFromGeoOp(GeoOp* op);
     void SyncGeometry(GeoOp* op, GeometryList* geoList);
     void SyncLights(std::vector<LightContext*> lights);
@@ -67,13 +71,15 @@ public:
     void ClearLights();
 
 private:
-    GfVec3f _defaultDisplayColor = {0.18, 0.18, 0.18};
-
     Scene _scene;
     std::array<Hash, Group_Last> _geoHashes;
 
-    RprimGeoInfoPtrMap _rprimGeoInfos;
-    LightOpPtrMap _lightOps;
+    template <typename T>
+        using SdfPathMap = std::unordered_map<SdfPath, T, SdfPath::Hash>;
+    SdfPathMap<HdNukeGeoAdapterPtr> _geoAdapters;
+    SdfPathMap<HdNukeLightAdapterPtr> _lightAdapters;
+
+    AdapterSharedState sharedState;
 };
 
 

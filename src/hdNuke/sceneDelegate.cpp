@@ -1,12 +1,6 @@
-#include <pxr/base/gf/vec2f.h>
 #include <pxr/base/gf/vec3f.h>
-#include <pxr/base/gf/vec4f.h>
 
-#include <pxr/usd/usdGeom/tokens.h>
-
-#include <pxr/imaging/hd/light.h>
 #include <pxr/imaging/hd/renderIndex.h>
-#include <pxr/imaging/pxOsd/tokens.h>
 
 #include <DDImage/NodeI.h>
 
@@ -31,67 +25,17 @@ HdNukeSceneDelegate::HdNukeSceneDelegate(HdRenderIndex* renderIndex)
 HdMeshTopology
 HdNukeSceneDelegate::GetMeshTopology(const SdfPath& id)
 {
-    const GeoInfo* geoInfo = _rprimGeoInfos[id];
-    TF_VERIFY(geoInfo);
-
-    const uint32_t numPrimitives = geoInfo->primitives();
-
-    size_t totalFaces = 0;
-    const Primitive** primArray = geoInfo->primitive_array();
-    for (size_t primIndex = 0; primIndex < numPrimitives; primIndex++)
-    {
-        totalFaces += primArray[primIndex]->faces();
-    }
-
-    VtIntArray faceVertexCounts;
-    faceVertexCounts.reserve(totalFaces);
-    VtIntArray faceVertexIndices;
-    faceVertexIndices.reserve(static_cast<size_t>(geoInfo->vertices()));
-
-    // XXX: If any face has more than this many vertices, we're going to die.
-    std::array<uint32_t, 16> faceVertices;
-
-    // TODO: Might want to build these in SyncFromGeoOp so we can verify that
-    // the GeoInfo is a mesh?
-    for (uint32_t primIndex = 0; primIndex < numPrimitives; primIndex++)
-    {
-        const Primitive* prim = primArray[primIndex];
-        const PrimitiveType primType = prim->getPrimitiveType();
-        if (primType == ePoint or primType == eParticles
-                or primType == eParticlesSprite) {
-            continue;
-        }
-
-        for (uint32_t faceIndex = 0; faceIndex < prim->faces(); faceIndex++)
-        {
-            const uint32_t numFaceVertices = prim->face_vertices(faceIndex);
-            faceVertexCounts.push_back(numFaceVertices);
-
-            prim->get_face_vertices(faceIndex, faceVertices.data());
-            for (uint32_t faceVertexIndex = 0; faceVertexIndex < numFaceVertices; faceVertexIndex++)
-            {
-                faceVertexIndices.push_back(prim->vertex(faceVertices[faceVertexIndex]));
-            }
-        }
-    }
-
-    return HdMeshTopology(PxOsdOpenSubdivTokens->smooth,
-                          UsdGeomTokens->rightHanded, faceVertexCounts,
-                          faceVertexIndices);
+    return GetGeoAdapter(id)->GetMeshTopology();
 }
 
 GfMatrix4d
 HdNukeSceneDelegate::GetTransform(const SdfPath& id)
 {
     if (id.HasPrefix(GEO_ROOT)) {
-        const GeoInfo* geoInfo = _rprimGeoInfos[id];
-        TF_VERIFY(geoInfo);
-        return DDToGfMatrix4d(geoInfo->matrix);
+        return GetGeoAdapter(id)->GetTransform();
     }
     else if (id.HasPrefix(LIGHT_ROOT)) {
-        const LightOp* light = _lightOps[id];
-        TF_VERIFY(light);
-        return DDToGfMatrix4d(light->matrix());
+        return GetLightAdapter(id)->GetTransform();
     }
 
     TF_WARN("HdNukeSceneDelegate::GetTransform : Unrecognized prim id: %s",
@@ -103,193 +47,39 @@ VtValue
 HdNukeSceneDelegate::Get(const SdfPath& id, const TfToken& key)
 {
     std::cerr << "HdNukeSceneDelegate::Get : " << id << ", " << key.GetString() << std::endl;
-
-    const GeoInfo* geoInfo = _rprimGeoInfos[id];
-    TF_VERIFY(geoInfo);
-
-    if (key == HdTokens->points) {
-        const PointList* pointList = geoInfo->point_list();
-        if (ARCH_UNLIKELY(!pointList)) {
-            return VtValue();
-        }
-
-        const auto* rawPoints = reinterpret_cast<const GfVec3f*>(pointList->data());
-        VtVec3fArray ret;
-        ret.assign(rawPoints, rawPoints + pointList->size());
-        return VtValue::Take(ret);
-    }
-    else if (key == HdTokens->displayColor) {
-        return VtValue(_defaultDisplayColor);
-    }
-
-    const Attribute* geoAttr = geoInfo->get_attribute(key.GetText());
-    if (ARCH_UNLIKELY(!geoAttr)) {
-        TF_WARN("HdNukeSceneDelegate::Get : No geo attribute matches key %s",
-            key.GetText());
-        return VtValue();
-    }
-    if (!geoAttr->valid()) {
-        TF_WARN("HdNukeSceneDelegate::Get : Invalid attribute: %s",
-            key.GetText());
-        return VtValue();
-    }
-
-    if (geoAttr->size() == 1) {
-        void* rawData = geoAttr->array();
-        float* floatData = static_cast<float*>(rawData);
-
-        switch (geoAttr->type()) {
-            case FLOAT_ATTRIB:
-                return VtValue(floatData[0]);
-            case INT_ATTRIB:
-                return VtValue(static_cast<int32_t*>(rawData)[0]);
-            case STRING_ATTRIB:
-                return VtValue(std::string(static_cast<char**>(rawData)[0]));
-            case STD_STRING_ATTRIB:
-                return VtValue(static_cast<std::string*>(rawData)[0]);
-            case VECTOR2_ATTRIB:
-                return VtValue(GfVec2f(floatData));
-            case VECTOR3_ATTRIB:
-            case NORMAL_ATTRIB:
-                return VtValue(GfVec3f(floatData));
-            case VECTOR4_ATTRIB:
-                return VtValue(GfVec4f(floatData));
-            case MATRIX3_ATTRIB:
-                {
-                    GfMatrix3f gfMatrix;
-                    std::copy(floatData, floatData + 9, gfMatrix.data());
-                    return VtValue(gfMatrix);
-                }
-            case MATRIX4_ATTRIB:
-                {
-                    GfMatrix4f gfMatrix;
-                    std::copy(floatData, floatData + 16, gfMatrix.data());
-                    return VtValue(gfMatrix);
-                }
-        }
-    }
-    else {
-        switch (geoAttr->type()) {
-            case FLOAT_ATTRIB:
-                return DDAttrToVtArrayValue<float>(geoAttr);
-            case INT_ATTRIB:
-                return DDAttrToVtArrayValue<int32_t>(geoAttr);
-            case VECTOR2_ATTRIB:
-                return DDAttrToVtArrayValue<GfVec2f>(geoAttr);
-            case VECTOR3_ATTRIB:
-            case NORMAL_ATTRIB:
-                return DDAttrToVtArrayValue<GfVec3f>(geoAttr);
-            case VECTOR4_ATTRIB:
-                return DDAttrToVtArrayValue<GfVec4f>(geoAttr);
-            case MATRIX3_ATTRIB:
-                return DDAttrToVtArrayValue<GfMatrix3f>(geoAttr);
-            case MATRIX4_ATTRIB:
-                return DDAttrToVtArrayValue<GfMatrix4f>(geoAttr);
-            case STD_STRING_ATTRIB:
-                return DDAttrToVtArrayValue<std::string>(geoAttr);
-            // XXX: Ignoring char* array attrs for now... not sure whether they
-            // need special-case handling.
-            // case STRING_ATTRIB:
-        }
-    }
-
-    TF_WARN("HdNukeSceneDelegate::Get : Unhandled attribute type: %d",
-            geoAttr->type());
-    return VtValue();
+    return GetGeoAdapter(id)->Get(key);
 }
 
 HdPrimvarDescriptorVector
-HdNukeSceneDelegate::GetPrimvarDescriptors(const SdfPath& id, HdInterpolation interpolation)
+HdNukeSceneDelegate::GetPrimvarDescriptors(const SdfPath& id,
+                                           HdInterpolation interpolation)
 {
-    // Group_Object      -> HdInterpolationConstant
-    // Group_Primitives  -> HdInterpolationUniform
-    // Group_Points (?)  -> HdInterpolationVarying
-    // Group_Vertices    -> HdInterpolationVertex
-
-    const GeoInfo* geoInfo = _rprimGeoInfos[id];
-    TF_VERIFY(geoInfo);
-
-    HdPrimvarDescriptorVector primvars;
-    GroupType attrGroupType;
-
-    switch (interpolation) {
-        case HdInterpolationConstant:
-            attrGroupType = Group_Object;
-            primvars.push_back(
-                HdPrimvarDescriptor(HdTokens->displayColor, interpolation,
-                                    HdPrimvarRoleTokens->color));
-            break;
-        case HdInterpolationUniform:
-            attrGroupType = Group_Primitives;
-            break;
-        case HdInterpolationVarying:
-            attrGroupType = Group_Points;
-            break;
-        case HdInterpolationVertex:
-            attrGroupType = Group_Vertices;
-            break;
-        default:
-            return primvars;
-    }
-
-    for (const auto& attribCtx : geoInfo->get_cache_pointer()->attributes)
-    {
-        if (attribCtx.group == attrGroupType and not attribCtx.empty()) {
-            TfToken attribName(attribCtx.name);
-            TfToken role;
-            if (attribName == HdNukeTokens->Cf) {
-                role = HdPrimvarRoleTokens->color;
-            }
-            else if (attribName == HdNukeTokens->uv) {
-                role = HdPrimvarRoleTokens->textureCoordinate;
-            }
-            else if (attribName == HdNukeTokens->N) {
-                role = HdPrimvarRoleTokens->normal;
-            }
-            else if (attribName == HdNukeTokens->PW) {
-                role = HdPrimvarRoleTokens->point;
-            }
-            else {
-                role = HdPrimvarRoleTokens->none;
-            }
-
-            primvars.push_back(
-                HdPrimvarDescriptor(attribName, interpolation, role));
-        }
-    }
-
-    return primvars;
+    return GetGeoAdapter(id)->GetPrimvarDescriptors(interpolation);
 }
 
 VtValue
-HdNukeSceneDelegate::GetLightParamValue(const SdfPath& id, const TfToken& paramName)
+HdNukeSceneDelegate::GetLightParamValue(const SdfPath& id,
+                                        const TfToken& paramName)
 {
-    const LightOp* lightOp = _lightOps[id];
-    TF_VERIFY(lightOp);
+    return GetLightAdapter(id)->GetLightParamValue(paramName);
+}
 
-    if (paramName == HdLightTokens->color) {
-        auto& pixel = lightOp->color();
-        return VtValue(
-            GfVec3f(pixel[Chan_Red], pixel[Chan_Green], pixel[Chan_Blue]));
-    }
-    else if (paramName == HdLightTokens->intensity) {
-        return VtValue(lightOp->intensity());
-    }
-    else if (paramName == HdLightTokens->radius) {
-        return VtValue(lightOp->sample_width());
-    }
-    else if (paramName == HdLightTokens->shadowColor) {
-        return VtValue(GfVec3f(0));
-    }
-    else if (paramName == HdLightTokens->shadowEnable) {
-        return VtValue(lightOp->cast_shadows());
-    }
-    else if (paramName == HdLightTokens->exposure or
-             paramName == HdLightTokens->diffuse or
-             paramName == HdLightTokens->specular) {
-        return VtValue(1.0f);
-    }
-    return VtValue();
+HdNukeGeoAdapterPtr
+HdNukeSceneDelegate::GetGeoAdapter(const SdfPath& id) const
+{
+    auto it = _geoAdapters.find(id);
+    auto result = it == _geoAdapters.end() ? nullptr : it->second;
+    TF_VERIFY(result);
+    return result;
+}
+
+HdNukeLightAdapterPtr
+HdNukeSceneDelegate::GetLightAdapter(const SdfPath& id) const
+{
+    auto it = _lightAdapters.find(id);
+    auto result = it == _lightAdapters.end() ? nullptr : it->second;
+    TF_VERIFY(result);
+    return result;
 }
 
 SdfPath
@@ -304,13 +94,15 @@ HdNukeSceneDelegate::MakeRprimId(const GeoInfo& geoInfo) const
 void
 HdNukeSceneDelegate::SetDefaultDisplayColor(GfVec3f color)
 {
-    _defaultDisplayColor = color;
+    if (color != sharedState.defaultDisplayColor) {
+        sharedState.defaultDisplayColor = color;
 
-    if (not _rprimGeoInfos.empty()) {
-        HdChangeTracker& tracker = GetRenderIndex().GetChangeTracker();
-        for (const auto& rprimPair : _rprimGeoInfos)
-        {
-            tracker.MarkPrimvarDirty(rprimPair.first, HdTokens->displayColor);
+        if (not _geoAdapters.empty()) {
+            HdChangeTracker& tracker = GetRenderIndex().GetChangeTracker();
+            for (const auto& adapterPair : _geoAdapters)
+            {
+                tracker.MarkPrimvarDirty(adapterPair.first, HdTokens->displayColor);
+            }
         }
     }
 }
@@ -363,29 +155,41 @@ HdNukeSceneDelegate::SyncGeometry(GeoOp* op, GeometryList* geoList)
         dirtyBits |= HdChangeTracker::DirtyPrimvar;
     }
 
-    bool anyDirtyBits = dirtyBits != HdChangeTracker::Clean;
+    const bool anyDirtyBits = dirtyBits != HdChangeTracker::Clean;
 
     // Generate Rprim IDs for the GeoInfos in the scene
-    RprimGeoInfoRefMap sceneGeoInfos;
+    SdfPathMap<GeoInfo&> sceneGeoInfos;
     sceneGeoInfos.reserve(geoList->size());
 
     for (size_t i = 0; i < geoList->size(); i++)
     {
-        const GeoInfo& geoInfo = geoList->object(i);
-
-        SdfPath primId = MakeRprimId(geoInfo);
-        sceneGeoInfos.emplace(primId, geoInfo);
+        GeoInfo& geoInfo = geoList->object(i);
+        sceneGeoInfos.emplace(MakeRprimId(geoInfo), geoInfo);
     }
 
     HdRenderIndex& renderIndex = GetRenderIndex();
     HdChangeTracker& changeTracker = renderIndex.GetChangeTracker();
 
-    // Insert new Rprims for IDs we don't already know about
+    // Remove Rprims whose IDs are not in the new scene.
+    for (auto it = _geoAdapters.begin(); it != _geoAdapters.end(); )
+    {
+        if (sceneGeoInfos.find(it->first) == sceneGeoInfos.end()) {
+            renderIndex.RemoveRprim(it->first);
+            it = _geoAdapters.erase(it);
+        }
+        else {
+            it++;
+        }
+    }
+
+    // Insert new Rprims and mark existing ones dirty
     for (const auto& sceneGeoPair : sceneGeoInfos)
     {
         const SdfPath& primId = sceneGeoPair.first;
-        if (_rprimGeoInfos.find(primId) == _rprimGeoInfos.end()) {
-            _rprimGeoInfos[primId] = &sceneGeoPair.second;
+        if (_geoAdapters.find(primId) == _geoAdapters.end()) {
+            auto adapterPtr = std::make_shared<HdNukeGeoAdapter>(
+                primId, &sharedState, sceneGeoPair.second);
+            _geoAdapters[primId] = adapterPtr;
 
             renderIndex.InsertRprim(HdPrimTypeTokens->mesh, this, primId);
         }
@@ -393,19 +197,6 @@ HdNukeSceneDelegate::SyncGeometry(GeoOp* op, GeometryList* geoList)
             if (anyDirtyBits) {
                 changeTracker.MarkRprimDirty(primId, dirtyBits);
 
-            }
-        }
-    }
-
-    // Remove Rprims whose IDs are not in the new scene.
-    for (auto it = _rprimGeoInfos.begin(); it != _rprimGeoInfos.end(); )
-    {
-        if (sceneGeoInfos.find(it->first) == sceneGeoInfos.end()) {
-            renderIndex.RemoveRprim(it->first);
-            it = _rprimGeoInfos.erase(it);
-        }
-        else {
-            it++;
         }
     }
 }
@@ -423,7 +214,7 @@ HdNukeSceneDelegate::SyncLights(std::vector<LightContext*> lights)
             TfToken(lightOp->getNode()->getNodeName()));
 
         // TODO: Implement light dirtying
-        if (_lightOps.find(lightId) != _lightOps.end()) {
+        if (_lightAdapters.find(lightId) != _lightAdapters.end()) {
             TF_CODING_ERROR("Skipping duplicate light ID: %s", lightId.GetText());
             continue;
         }
@@ -447,8 +238,17 @@ HdNukeSceneDelegate::SyncLights(std::vector<LightContext*> lights)
                 continue;
         }
 
-        renderIndex.InsertSprim(lightType, this, lightId);
-        _lightOps[lightId] = lightOp;
+        if (renderIndex.IsSprimTypeSupported(lightType)) {
+            auto adapterPtr = std::make_shared<HdNukeLightAdapter>(
+                lightId, &sharedState, lightOp);
+            _lightAdapters[lightId] = adapterPtr;
+
+            renderIndex.InsertSprim(lightType, this, lightId);
+        }
+        else {
+            TF_WARN("Selected render delegate does not support Sprim type %s",
+                    lightType.GetText());
+        }
     }
 }
 
@@ -465,8 +265,8 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
     op->build_scene(_scene);
     GeometryList* geoList = _scene.object_list();
 
-    SyncGeometry(op, geoList);
 
+    SyncGeometry(op, geoList);
     SyncLights(_scene.lights);
 }
 
@@ -475,14 +275,13 @@ HdNukeSceneDelegate::ClearAll()
 {
 
     ClearGeo();
-
     ClearLights();
 }
 
 void
 HdNukeSceneDelegate::ClearGeo()
 {
-    _rprimGeoInfos.clear();
+    _geoAdapters.clear();
     GetRenderIndex().RemoveSubtree(GEO_ROOT, this);
     for (auto& hash : _geoHashes) {
         hash.reset();
@@ -492,7 +291,7 @@ HdNukeSceneDelegate::ClearGeo()
 void
 HdNukeSceneDelegate::ClearLights()
 {
-    _lightOps.clear();
+    _lightAdapters.clear();
     GetRenderIndex().RemoveSubtree(LIGHT_ROOT, this);
 }
 

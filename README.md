@@ -12,6 +12,7 @@ Hydra rendering in Nuke.
 - Handle aborted() in engine during render
 - Manual abort mechanism for renders (cancel button?)
     - Keep an eye out for any way to hook a progress callback to Hydra
+- Produce some metadata
 - Compare HydraData struct with UsdImagingGLEngine render plugin swapping code
 - Storm support (2D and/or 3D)
 - Different rendering modes (wireframe, etc)?
@@ -19,7 +20,6 @@ Hydra rendering in Nuke.
 
 #### Scene Delegate
 
-- Implement owner clases for geo, lights, etc.
 - Light dirtying
 - GetExtent impl
 - Particles
