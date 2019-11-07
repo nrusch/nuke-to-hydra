@@ -47,6 +47,10 @@ public:
 
     VtValue Get(const SdfPath& id, const TfToken& key) override;
 
+    SdfPath GetMaterialId(const SdfPath& rprimId) override;
+
+    VtValue GetMaterialResource(const SdfPath& materialId) override;
+
     HdPrimvarDescriptorVector
     GetPrimvarDescriptors(const SdfPath& id,
                           HdInterpolation interpolation) override;

@@ -4,6 +4,7 @@
 
 #include <DDImage/NodeI.h>
 
+#include "materialAdapter.h"
 #include "sceneDelegate.h"
 #include "tokens.h"
 
@@ -12,8 +13,12 @@ PXR_NAMESPACE_OPEN_SCOPE
 
 
 static SdfPath DELEGATE_ID(TfToken("/Nuke", TfToken::Immortal));
-static SdfPath GEO_ROOT = DELEGATE_ID.AppendChild(TfToken("Geo"));
-static SdfPath LIGHT_ROOT = DELEGATE_ID.AppendChild(TfToken("Lights"));
+static SdfPath GEO_ROOT = DELEGATE_ID.AppendChild(HdNukeTokens->Geo);
+static SdfPath LIGHT_ROOT = DELEGATE_ID.AppendChild(HdNukeTokens->Lights);
+static SdfPath MATERIAL_ROOT = DELEGATE_ID.AppendChild(HdNukeTokens->Materials);
+
+static SdfPath DEFAULT_MATERIAL =
+    MATERIAL_ROOT.AppendChild(HdNukeTokens->defaultSurface);
 
 
 HdNukeSceneDelegate::HdNukeSceneDelegate(HdRenderIndex* renderIndex)
@@ -48,6 +53,18 @@ HdNukeSceneDelegate::Get(const SdfPath& id, const TfToken& key)
 {
     std::cerr << "HdNukeSceneDelegate::Get : " << id << ", " << key.GetString() << std::endl;
     return GetGeoAdapter(id)->Get(key);
+}
+
+SdfPath
+HdNukeSceneDelegate::GetMaterialId(const SdfPath& rprimId)
+{
+    return DEFAULT_MATERIAL;
+}
+
+VtValue
+HdNukeSceneDelegate::GetMaterialResource(const SdfPath& materialId)
+{
+    return HdNukeMaterialAdapter::GetPreviewMaterialResource(materialId);
 }
 
 HdPrimvarDescriptorVector
@@ -268,6 +285,13 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
 
     SyncGeometry(op, geoList);
     SyncLights(_scene.lights);
+
+    HdRenderIndex& renderIndex = GetRenderIndex();
+
+    if (renderIndex.IsSprimTypeSupported(HdPrimTypeTokens->material)) {
+        renderIndex.InsertSprim(
+            HdPrimTypeTokens->material, this, DEFAULT_MATERIAL);
+    }
 }
 
 void
