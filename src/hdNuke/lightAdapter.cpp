@@ -9,8 +9,12 @@ PXR_NAMESPACE_OPEN_SCOPE
 
 HdNukeLightAdapter::HdNukeLightAdapter(const SdfPath& id,
                                        AdapterSharedState* statePtr,
-                                       const LightOp* lightOp)
-    : HdNukeAdapter(id, statePtr), _light(lightOp)
+                                       const LightOp* lightOp,
+                                       const TfToken& lightType)
+    : HdNukeAdapter(id, statePtr)
+    , _light(lightOp)
+    , _lightType(lightType)
+    , _lastHash(lightOp->hash())
 {
 }
 
@@ -51,6 +55,10 @@ HdNukeLightAdapter::GetLightParamValue(const TfToken& paramName) const
     }
     return VtValue();
 }
+
+
+HdDirtyBits HdNukeLightAdapter::DefaultDirtyBits =
+    HdLight::DirtyTransform | HdLight::DirtyParams | HdLight::DirtyShadowParams;
 
 
 PXR_NAMESPACE_CLOSE_SCOPE

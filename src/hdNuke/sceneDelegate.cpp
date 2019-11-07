@@ -85,18 +85,14 @@ HdNukeGeoAdapterPtr
 HdNukeSceneDelegate::GetGeoAdapter(const SdfPath& id) const
 {
     auto it = _geoAdapters.find(id);
-    auto result = it == _geoAdapters.end() ? nullptr : it->second;
-    TF_VERIFY(result);
-    return result;
+    return it == _geoAdapters.end() ? nullptr : it->second;
 }
 
 HdNukeLightAdapterPtr
 HdNukeSceneDelegate::GetLightAdapter(const SdfPath& id) const
 {
     auto it = _lightAdapters.find(id);
-    auto result = it == _lightAdapters.end() ? nullptr : it->second;
-    TF_VERIFY(result);
-    return result;
+    return it == _lightAdapters.end() ? nullptr : it->second;
 }
 
 SdfPath
@@ -221,20 +217,34 @@ HdNukeSceneDelegate::SyncGeometry(GeoOp* op, GeometryList* geoList)
 void
 HdNukeSceneDelegate::SyncLights(std::vector<LightContext*> lights)
 {
-    HdRenderIndex& renderIndex = GetRenderIndex();
+    SdfPathMap<LightOp*> sceneLights;
 
     for (const LightContext* lightCtx : lights)
     {
         LightOp* lightOp = lightCtx->light();
 
-        SdfPath lightId = LIGHT_ROOT.AppendChild(
-            TfToken(lightOp->getNode()->getNodeName()));
+        SdfPath lightId = LIGHT_ROOT.AppendChild(TfToken(lightOp->node_name()));
+        sceneLights.emplace(lightId, lightOp);
+    }
 
-        // TODO: Implement light dirtying
-        if (_lightAdapters.find(lightId) != _lightAdapters.end()) {
-            TF_CODING_ERROR("Skipping duplicate light ID: %s", lightId.GetText());
-            continue;
+    HdRenderIndex& renderIndex = GetRenderIndex();
+    HdChangeTracker& changeTracker = renderIndex.GetChangeTracker();
+
+    // Remove lights not in the new scene.
+    for (auto it = _lightAdapters.begin(); it != _lightAdapters.end(); )
+    {
+        if (sceneLights.find(it->first) == sceneLights.end()) {
+            renderIndex.RemoveSprim(it->second->GetLightType(), it->first);
+            it = _lightAdapters.erase(it);
         }
+        else {
+            it++;
+        }
+    }
+
+    for (const auto& lightInfo : sceneLights) {
+        const SdfPath& lightId = lightInfo.first;
+        LightOp* lightOp = lightInfo.second;
 
         TfToken lightType;
         switch (lightOp->lightType()) {
@@ -255,17 +265,32 @@ HdNukeSceneDelegate::SyncLights(std::vector<LightContext*> lights)
                 continue;
         }
 
-        if (renderIndex.IsSprimTypeSupported(lightType)) {
-            auto adapterPtr = std::make_shared<HdNukeLightAdapter>(
-                lightId, &sharedState, lightOp);
-            _lightAdapters[lightId] = adapterPtr;
-
-            renderIndex.InsertSprim(lightType, this, lightId);
-        }
-        else {
+        if (not renderIndex.IsSprimTypeSupported(lightType)) {
             TF_WARN("Selected render delegate does not support Sprim type %s",
                     lightType.GetText());
+            continue;
         }
+
+        if (auto adapter = GetLightAdapter(lightId)) {
+            if (adapter->GetLightType() == lightType) {
+                if (adapter->DirtyHash()) {
+                    changeTracker.MarkSprimDirty(
+                        lightId, HdNukeLightAdapter::DefaultDirtyBits);
+                    adapter->UpdateLastHash();
+                }
+                continue;
+            }
+
+            // Light ID is the same, but op type has changed, so blow it away.
+            renderIndex.RemoveSprim(adapter->GetLightType(), lightId);
+            _lightAdapters.erase(lightId);
+        }
+
+        auto adapterPtr = std::make_shared<HdNukeLightAdapter>(
+            lightId, &sharedState, lightOp, lightType);
+        _lightAdapters[lightId] = adapterPtr;
+
+        renderIndex.InsertSprim(lightType, this, lightId);
     }
 }
 

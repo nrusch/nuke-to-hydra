@@ -6,9 +6,11 @@ Hydra rendering in Nuke.
 
 #### HydraRender Op
 
+- Higher bit depth output
 - Add knobs to control output of depth, normals.
     - Support both depth and linearDepth (need to manually add the latter)
 - Add a knob to output all buffers for debugging.
+- Add knob to enable/disable lights, materials
 - Handle aborted() in engine during render
 - Manual abort mechanism for renders (cancel button?)
     - Keep an eye out for any way to hook a progress callback to Hydra
@@ -20,7 +22,6 @@ Hydra rendering in Nuke.
 
 #### Scene Delegate
 
-- Light dirtying
 - GetExtent impl
 - Particles
     - Need a fast way to identify GeoInfo type without having to look at all
@@ -41,7 +42,6 @@ Hydra rendering in Nuke.
 
 #### Misc Notes
 
-- Might need to implement fallback behavior for (e.g.) lights based on prim
-  types supported by the selected renderer.
+- Might need/want to implement custom Hydra light ops
 - Need other (more capable) render delegates to test
 - Op to draw USD stage into the 3D viewer without creating geo
