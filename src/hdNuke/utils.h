@@ -38,10 +38,13 @@ template <typename T>
 inline VtValue
 DDAttrToVtArrayValue(const Attribute* geoAttr)
 {
-    // XXX: Would be interesting to try using `Vt_ArrayForeignDataSource`...
     VtArray<T> array;
-    auto* dataVec = static_cast<std::vector<T>*>(geoAttr->array());
-    array.assign(dataVec->begin(), dataVec->end());
+    array.reserve(geoAttr->size());
+    T* dataPtr = static_cast<T*>(geoAttr->array());
+    T* outPtr = array.data();
+    for (size_t i = 0; i < geoAttr->size(); i++) {
+        *outPtr++ = *dataPtr++;
+    }
     return VtValue::Take(array);
 }
 
