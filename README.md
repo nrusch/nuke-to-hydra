@@ -15,7 +15,6 @@ Hydra rendering in Nuke.
 - Manual abort mechanism for renders (cancel button?)
     - Keep an eye out for any way to hook a progress callback to Hydra
 - Produce some metadata
-- Compare HydraData struct with UsdImagingGLEngine render plugin swapping code
 - Storm support (2D and/or 3D)
 - Different rendering modes (wireframe, etc)?
 - Dynamic knobs for render delegate settings
@@ -30,7 +29,6 @@ Hydra rendering in Nuke.
 - Remap known attribute names to align with USD/Hd standards
     - uv -> st
     - N -> HdTokens->normals
-    - Cf -> HdTokens->displayColor
 - Do we need to worry about `AttribContext.varying`?
 - Materials
     - UsdPreviewSurface

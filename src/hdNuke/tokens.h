@@ -9,19 +9,21 @@
 PXR_NAMESPACE_OPEN_SCOPE
 
 
-#define HDNUKE_TOKENS                                      \
-    (Geo)                                                  \
-    (Lights)                                               \
-    (Materials)                                            \
-    ((defaultSurface, "__defaultSurface"))                 \
-    /* Attribute name constants in DDImage/Attribute.h */  \
-    (Cf)                                                   \
-    (N)                                                    \
-    (name)                                                 \
-    (PW)                                                   \
-    (size)                                                 \
-    (transform)                                            \
-    (uv)                                                   \
+#define HDNUKE_TOKENS                       \
+    (Geo)                                   \
+    (Lights)                                \
+    (Materials)                             \
+    ((defaultSurface, "__defaultSurface"))  \
+    (st)                                    \
+    /* Attribute name constants */          \
+    /* in DDImage/Attribute.h */            \
+    (Cf)                                    \
+    (N)                                     \
+    (name)                                  \
+    (PW)                                    \
+    (size)                                  \
+    (transform)                             \
+    (uv)                                    \
     (vel)
 
 

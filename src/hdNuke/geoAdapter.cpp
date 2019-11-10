@@ -99,22 +99,31 @@ HdNukeGeoAdapter::Get(const TfToken& key) const
         return VtValue(GetSharedState()->defaultDisplayColor);
     }
 
-    const Attribute* geoAttr = _geo->get_attribute(key.GetText());
+    TfToken attrName;
+    if (key == HdNukeTokens->st) {
+        attrName = HdNukeTokens->uv;
+    }
+    else if (key == HdTokens->normals) {
+        attrName = HdNukeTokens->N;
+    }
+    else if (key == HdTokens->velocities) {
+        attrName = HdNukeTokens->vel;
+    }
+    else {
+        attrName = key;
+    }
+
+    const Attribute* geoAttr = _geo->get_attribute(attrName.GetText());
     if (ARCH_UNLIKELY(!geoAttr)) {
-        TF_WARN("HdNukeGeoAdapter::Get : No geo attribute matches key %s",
-                key.GetText());
+        TF_WARN("HdNukeGeoAdapter::Get : No geo attribute matches name %s",
+                attrName.GetText());
         return VtValue();
     }
     if (!geoAttr->valid()) {
         TF_WARN("HdNukeGeoAdapter::Get : Invalid attribute: %s",
-                key.GetText());
+                attrName.GetText());
         return VtValue();
     }
-
-    std::cerr << "  name: " << geoAttr->name() << ", size: " << geoAttr->size()
-        << ", data_elements: " << geoAttr->data_elements() << std::endl;
-
-    return VtValue();
 
     if (geoAttr->size() == 1) {
         void* rawData = geoAttr->array();
@@ -215,20 +224,26 @@ HdNukeGeoAdapter::GetPrimvarDescriptors(HdInterpolation interpolation) const
 
     for (const auto& attribCtx : _geo->get_cache_pointer()->attributes)
     {
-        if (attribCtx.group == attrGroupType and not attribCtx.empty()) {
+        if (attribCtx.group == attrGroupType and attribCtx.not_empty()) {
             TfToken attribName(attribCtx.name);
             TfToken role;
             if (attribName == HdNukeTokens->Cf) {
                 role = HdPrimvarRoleTokens->color;
             }
             else if (attribName == HdNukeTokens->uv) {
+                attribName = HdNukeTokens->st;
                 role = HdPrimvarRoleTokens->textureCoordinate;
             }
             else if (attribName == HdNukeTokens->N) {
+                attribName = HdTokens->normals;
                 role = HdPrimvarRoleTokens->normal;
             }
             else if (attribName == HdNukeTokens->PW) {
                 role = HdPrimvarRoleTokens->point;
+            }
+            else if (attribName == HdNukeTokens->vel) {
+                attribName = HdTokens->velocities;
+                role = HdPrimvarRoleTokens->vector;
             }
             else {
                 role = HdPrimvarRoleTokens->none;
@@ -237,10 +252,6 @@ HdNukeGeoAdapter::GetPrimvarDescriptors(HdInterpolation interpolation) const
             // Do we need to worry about AttribContext.varying?
             primvars.push_back(
                 HdPrimvarDescriptor(attribName, interpolation, role));
-
-            // XXX: Temp
-            attribCtx.print_info();
-            std::cout << std::endl;
         }
     }
 
