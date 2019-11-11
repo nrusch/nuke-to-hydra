@@ -31,6 +31,8 @@ public:
 
     VtValue Get(const TfToken& key) const;
 
+    VtValue GetUVs(const Attribute* geoAttr) const;
+
     SdfPath GetMaterialId(const SdfPath& rprimId) const;
 
     HdPrimvarDescriptorVector

@@ -104,8 +104,10 @@ HdNukeGeoAdapter::Get(const TfToken& key) const
     }
 
     TfToken attrName;
+    bool isUV = false;
     if (key == HdNukeTokens->st) {
         attrName = HdNukeTokens->uv;
+        isUV = true;
     }
     else if (key == HdTokens->normals) {
         attrName = HdNukeTokens->N;
@@ -127,6 +129,10 @@ HdNukeGeoAdapter::Get(const TfToken& key) const
         TF_WARN("HdNukeGeoAdapter::Get : Invalid attribute: %s",
                 attrName.GetText());
         return VtValue();
+    }
+
+    if (isUV) {
+        return GetUVs(geoAttr);
     }
 
     if (geoAttr->size() == 1) {
@@ -191,6 +197,21 @@ HdNukeGeoAdapter::Get(const TfToken& key) const
     TF_WARN("HdNukeGeoAdapter::Get : Unhandled attribute type: %d",
             geoAttr->type());
     return VtValue();
+}
+
+VtValue
+HdNukeGeoAdapter::GetUVs(const Attribute* geoAttr) const
+{
+    VtArray<GfVec2f> array;
+    array.reserve(geoAttr->size());
+    float* dataPtr = static_cast<float*>(geoAttr->array());
+    float* outPtr = reinterpret_cast<float*>(array.data());
+    const auto width = geoAttr->data_elements();
+    for (size_t i = 0; i < geoAttr->size(); i++, dataPtr += width) {
+        *outPtr++ = dataPtr[0];
+        *outPtr++ = dataPtr[1];
+    }
+    return VtValue::Take(array);
 }
 
 HdPrimvarDescriptorVector
