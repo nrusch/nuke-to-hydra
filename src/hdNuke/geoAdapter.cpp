@@ -35,16 +35,18 @@ HdNukeGeoAdapter::GetMeshTopology() const
     const uint32_t numPrimitives = _geo->primitives();
 
     size_t totalFaces = 0;
+    size_t totalVerts = 0;
     const Primitive** primArray = _geo->primitive_array();
     for (size_t primIndex = 0; primIndex < numPrimitives; primIndex++)
     {
         totalFaces += primArray[primIndex]->faces();
+        totalVerts += primArray[primIndex]->vertices();
     }
 
     VtIntArray faceVertexCounts;
     faceVertexCounts.reserve(totalFaces);
     VtIntArray faceVertexIndices;
-    faceVertexIndices.reserve(static_cast<size_t>(_geo->vertices()));
+    faceVertexIndices.reserve(totalVerts);
 
     // XXX: If any face has more than this many vertices, we're going to die.
     std::array<uint32_t, 16> faceVertices;
@@ -65,9 +67,11 @@ HdNukeGeoAdapter::GetMeshTopology() const
             faceVertexCounts.push_back(numFaceVertices);
 
             prim->get_face_vertices(faceIndex, faceVertices.data());
-            for (uint32_t faceVertexIndex = 0; faceVertexIndex < numFaceVertices; faceVertexIndex++)
+            for (uint32_t faceVertexIndex = 0;
+                 faceVertexIndex < numFaceVertices; faceVertexIndex++)
             {
-                faceVertexIndices.push_back(prim->vertex(faceVertices[faceVertexIndex]));
+                faceVertexIndices.push_back(
+                    prim->vertex(faceVertices[faceVertexIndex]));
             }
         }
     }
@@ -194,8 +198,8 @@ HdNukeGeoAdapter::GetPrimvarDescriptors(HdInterpolation interpolation) const
 {
     // Group_Object      -> HdInterpolationConstant
     // Group_Primitives  -> HdInterpolationUniform
-    // Group_Points (?)  -> HdInterpolationVarying
-    // Group_Vertices    -> HdInterpolationVertex
+    // Group_Points (?)  -> HdInterpolationVertex
+    // Group_Vertices    -> HdInterpolationFaceVarying
 
     TF_VERIFY(_geo);
 
@@ -212,10 +216,10 @@ HdNukeGeoAdapter::GetPrimvarDescriptors(HdInterpolation interpolation) const
         case HdInterpolationUniform:
             attrGroupType = Group_Primitives;
             break;
-        case HdInterpolationVarying:
+        case HdInterpolationVertex:
             attrGroupType = Group_Points;
             break;
-        case HdInterpolationVertex:
+        case HdInterpolationFaceVarying:
             attrGroupType = Group_Vertices;
             break;
         default:

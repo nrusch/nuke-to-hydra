@@ -39,12 +39,8 @@ inline VtValue
 DDAttrToVtArrayValue(const Attribute* geoAttr)
 {
     VtArray<T> array;
-    array.reserve(geoAttr->size());
-    T* dataPtr = static_cast<T*>(geoAttr->array());
-    T* outPtr = array.data();
-    for (size_t i = 0; i < geoAttr->size(); i++) {
-        *outPtr++ = *dataPtr++;
-    }
+    const T* dataPtr = static_cast<const T*>(geoAttr->array());
+    array.assign(dataPtr, dataPtr + geoAttr->size());
     return VtValue::Take(array);
 }
 
