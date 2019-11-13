@@ -3,6 +3,7 @@
 
 #include <pxr/pxr.h>
 
+#include <pxr/imaging/hd/renderBuffer.h>
 #include <pxr/imaging/hd/renderDelegate.h>
 #include <pxr/imaging/hd/rendererPlugin.h>
 #include <pxr/imaging/hd/rendererPluginRegistry.h>
@@ -17,8 +18,9 @@
 PXR_NAMESPACE_OPEN_SCOPE
 
 
-struct HydraRenderStack
+class HydraRenderStack
 {
+public:
     HdRendererPlugin* rendererPlugin = nullptr;  // Ref-counted by Hydra
     HdRenderIndex* renderIndex = nullptr;
 
@@ -31,6 +33,8 @@ struct HydraRenderStack
     HydraRenderStack(HdRendererPlugin* pluginPtr);
 
     ~HydraRenderStack();
+
+    std::vector<HdRenderBuffer*> GetRenderBuffers() const;
 
     static HydraRenderStack* Create(TfToken pluginId);
 

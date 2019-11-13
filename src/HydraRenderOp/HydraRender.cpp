@@ -12,7 +12,6 @@
 #include <pxr/base/gf/vec3f.h>
 
 #include <pxr/imaging/hd/engine.h>
-#include <pxr/imaging/hd/renderBuffer.h>
 
 #include <DDImage/CameraOp.h>
 #include <DDImage/Enumeration_KnobI.h>
@@ -70,11 +69,6 @@ _scanRendererPlugins()
             buf.str(std::string());
             buf.clear();
         }
-
-        TfDebug::Enable(HD_BPRIM_ADDED);
-        TfDebug::Enable(HD_TASK_ADDED);
-        // TfDebug::Enable(HD_ENGINE_PHASE_INFO);
-
     });
 }
 
@@ -118,7 +112,6 @@ protected:
     }
 
     void initRenderer();
-    std::vector<HdRenderBuffer*> getRenderBuffers() const;
     void copyBufferToImagePlane(HdRenderBuffer* buffer, ImagePlane& plane);
 
 private:
@@ -398,24 +391,6 @@ HydraRender::renderStripe(ImagePlane& plane)
 
     sourceBuffer->Resolve();
     copyBufferToImagePlane(sourceBuffer, plane);
-}
-
-std::vector<HdRenderBuffer*>
-HydraRender::getRenderBuffers() const
-{
-    auto bprimIds = _hydra->renderIndex->GetBprimSubtree(
-        HdPrimTypeTokens->renderBuffer, taskController()->GetControllerId());
-
-    std::vector<HdRenderBuffer*> buffers;
-    buffers.reserve(bprimIds.size());
-
-    for (const auto& bprimId : bprimIds)
-    {
-        buffers.push_back(
-            static_cast<HdRenderBuffer*>(_hydra->renderIndex->GetBprim(
-                HdPrimTypeTokens->renderBuffer, bprimId)));
-    }
-    return buffers;
 }
 
 void

@@ -52,6 +52,27 @@ HydraRenderStack::~HydraRenderStack()
     }
 }
 
+std::vector<HdRenderBuffer*>
+HydraRenderStack::GetRenderBuffers() const
+{
+    std::vector<HdRenderBuffer*> buffers;
+    if (renderIndex == nullptr or taskController == nullptr) {
+        return buffers;
+    }
+
+    auto bprimIds = renderIndex->GetBprimSubtree(
+        HdPrimTypeTokens->renderBuffer, taskController->GetControllerId());
+    buffers.reserve(bprimIds.size());
+
+    for (const auto& bprimId : bprimIds)
+    {
+        buffers.push_back(
+            static_cast<HdRenderBuffer*>(renderIndex->GetBprim(
+                HdPrimTypeTokens->renderBuffer, bprimId)));
+    }
+    return buffers;
+}
+
 /* static */
 HydraRenderStack*
 HydraRenderStack::Create(TfToken pluginId)
