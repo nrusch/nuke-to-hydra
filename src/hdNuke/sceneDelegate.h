@@ -13,10 +13,20 @@
 #include "sharedState.h"
 
 
+namespace std
+{
+    template<>
+    struct hash<Hash>
+    {
+        size_t operator()(const Hash& h) const
+        {
+            return h.value();
+        }
+    };
+}  // namespace std
+
+
 using namespace DD::Image;
-
-
-
 
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -24,6 +34,13 @@ PXR_NAMESPACE_OPEN_SCOPE
 
 class GfVec3f;
 class HdRenderIndex;
+
+
+using GeoOpHashArray = std::array<Hash, Group_Last>;
+using GeoInfoVector = std::vector<const GeoInfo*>;
+
+template <typename T>
+using SdfPathMap = std::unordered_map<SdfPath, T, SdfPath::Hash>;
 
 
 class HdNukeSceneDelegate : public HdSceneDelegate
@@ -59,7 +76,11 @@ public:
                                const TfToken& paramName) override;
 
 
-    SdfPath MakeRprimId(const GeoInfo& geoInfo) const;
+    TfToken GetRprimType(const GeoInfo& geoInfo) const;
+    SdfPath GetRprimSubPath(const GeoInfo& geoInfo,
+                            const TfToken& primType) const;
+
+    uint32_t UpdateHashArray(const GeoOp* op, GeoOpHashArray& hashes) const;
 
     HdNukeGeoAdapterPtr GetGeoAdapter(const SdfPath& id) const;
     HdNukeLightAdapterPtr GetLightAdapter(const SdfPath& id) const;
@@ -74,12 +95,22 @@ public:
     void ClearGeo();
     void ClearLights();
 
+protected:
+    void CreateOpGeo(GeoOp* geoOp, const SdfPath& subtree,
+                     const GeoInfoVector& geoInfos);
+    void UpdateOpGeo(GeoOp* geoOp, const SdfPath& subtree,
+                     const GeoInfoVector& geoInfos);
+
 private:
     Scene _scene;
-    std::array<Hash, Group_Last> _geoHashes;
 
-    template <typename T>
-        using SdfPathMap = std::unordered_map<SdfPath, T, SdfPath::Hash>;
+    // May not want to store op pointers at all...
+    std::unordered_map<GeoOp*, SdfPath> _opSubtrees;
+    std::unordered_map<GeoOp*, GeoOpHashArray> _opStateHashes;
+
+    // Map GeoInfo.src_id() to prim ID
+    std::unordered_map<Hash, SdfPath> _geoInfoPrimIds;
+
     SdfPathMap<HdNukeGeoAdapterPtr> _geoAdapters;
     SdfPathMap<HdNukeLightAdapterPtr> _lightAdapters;
 

@@ -3,6 +3,8 @@
 
 #include <pxr/pxr.h>
 
+#include <pxr/base/gf/vec2f.h>
+
 #include <pxr/imaging/hd/sceneDelegate.h>
 
 #include <DDImage/GeoInfo.h>
@@ -18,20 +20,17 @@ PXR_NAMESPACE_OPEN_SCOPE
 class HdNukeGeoAdapter : public HdNukeAdapter
 {
 public:
-    HdNukeGeoAdapter(const SdfPath& id, AdapterSharedState* statePtr,
-                     GeoInfo& geoInfo);
+    HdNukeGeoAdapter(AdapterSharedState* statePtr);
 
-    GfMatrix4d GetTransform() const override;
+    void Update(const GeoInfo& geo, GeometryMask mask = Mask_All_Geometry);
 
-    const GeoInfo* GetGeoInfo() const { return _geo; }
+    inline GfMatrix4d GetTransform() const { return _transform; }
 
-    GfRange3d GetExtent() const;
+    inline GfRange3d GetExtent() const { return _extent; }
 
-    HdMeshTopology GetMeshTopology() const;
+    inline HdMeshTopology GetMeshTopology() const { return _topology; }
 
     VtValue Get(const TfToken& key) const;
-
-    VtValue GetUVs(const Attribute* geoAttr) const;
 
     SdfPath GetMaterialId(const SdfPath& rprimId) const;
 
@@ -39,7 +38,33 @@ public:
     GetPrimvarDescriptors(HdInterpolation interpolation) const;
 
 private:
-    GeoInfo* _geo;
+    void _RebuildMeshTopology(const GeoInfo& geo);
+    void _RebuildPointList(const GeoInfo& geo);
+    void _RebuildPrimvars(const GeoInfo& geo);
+
+    template <typename T>
+    inline void _StorePrimvarScalar(TfToken& key, const T& value) {
+        _primvarData.emplace(key, VtValue(value));
+    }
+
+    inline void _StorePrimvarArray(TfToken& key, VtValue&& array) {
+        _primvarData.emplace(key, std::move(array));
+    }
+
+    GfMatrix4d _transform;
+    GfRange3d _extent;
+
+    VtVec3fArray _points;
+    VtVec2fArray _uvs;
+
+    HdMeshTopology _topology;
+
+    HdPrimvarDescriptorVector _constantPrimvarDescriptors;
+    HdPrimvarDescriptorVector _uniformPrimvarDescriptors;
+    HdPrimvarDescriptorVector _vertexPrimvarDescriptors;
+    HdPrimvarDescriptorVector _faceVaryingPrimvarDescriptors;
+
+    std::unordered_map<TfToken, VtValue, TfToken::HashFunctor> _primvarData;
 };
 
 using HdNukeGeoAdapterPtr = std::shared_ptr<HdNukeGeoAdapter>;

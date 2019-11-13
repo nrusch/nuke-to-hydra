@@ -11,25 +11,17 @@
 PXR_NAMESPACE_OPEN_SCOPE
 
 
-class GfMatrix4d;
-
-
 class HdNukeAdapter
 {
 public:
-    HdNukeAdapter(const SdfPath& id, AdapterSharedState* statePtr)
-        : _id(id), _sharedState(statePtr) { }
-    virtual ~HdNukeAdapter() { }
+    HdNukeAdapter(AdapterSharedState* statePtr)
+        : _sharedState(statePtr) { }
 
-    const SdfPath& GetId() const { return _id; }
     inline const AdapterSharedState* GetSharedState() const {
         return _sharedState;
     }
 
-    virtual GfMatrix4d GetTransform() const = 0;
-
 private:
-    SdfPath _id;
     const AdapterSharedState* _sharedState;
 };
 

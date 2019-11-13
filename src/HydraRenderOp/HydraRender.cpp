@@ -232,7 +232,6 @@ HydraRender::knobs(Knob_Callback f)
 int
 HydraRender::knob_changed(Knob* k)
 {
-    // std::cerr << "HydraRender::knob_changed : " << k->name() << std::endl;
     if (k->is("usd_file")) {
         _stagePathChanged = true;
         return 1;
@@ -274,8 +273,6 @@ HydraRender::knob_changed(Knob* k)
 void
 HydraRender::_validate(bool for_real)
 {
-    std::cerr << "HydraRender::_validate" << std::endl;
-
     initRenderer();
 
     if (not _hydra) {
@@ -301,6 +298,10 @@ HydraRender::_validate(bool for_real)
     CameraOp* cam = dynamic_cast<CameraOp*>(Op::input(1));
     cam->validate(for_real);
 
+    if (GeoOp* geoOp = dynamic_cast<GeoOp*>(Op::input(0))) {
+        geoOp->validate(for_real);
+    }
+
     // const Matrix4& nukeMatrix = cam->matrix();
     GfMatrix4d camGfMatrix = DDToGfMatrix4d(cam->matrix());
 
@@ -323,26 +324,23 @@ HydraRender::_validate(bool for_real)
     taskController()->SetFreeCameraMatrices(frustum.ComputeViewMatrix(),
                                             frustum.ComputeProjectionMatrix());
 
-    if (GeoOp* geoOp = dynamic_cast<GeoOp*>(Op::input(0))) {
-        geoOp->validate(for_real);
-        sceneDelegate()->SyncFromGeoOp(geoOp);
+    if (for_real) {
+        _needRender = true;
     }
-    else {
-        sceneDelegate()->ClearAll();
-    }
-
-    _needRender = true;
 }
 
 void
 HydraRender::renderStripe(ImagePlane& plane)
 {
-    Box box = plane.bounds();
-    std::cerr << "HydraRender::renderStripe"  << std::endl;
-    std::cerr << "  bounds: " << box.x() << ", " << box.y() << ", " << box.r() << ", " << box.t() << std::endl;
-    std::cerr << "  channels: " << plane.channels() << " (packed: " << plane.packed() << ")" << std::endl;
 
     if (_needRender) {
+        if (GeoOp* geoOp = dynamic_cast<GeoOp*>(Op::input(0))) {
+            sceneDelegate()->SyncFromGeoOp(geoOp);
+        }
+        else {
+            sceneDelegate()->ClearAll();
+        }
+
         // XXX: For building/testing
         if (_stagePathChanged) {
             _hydra->loadUSDStage(_usdFilePath);

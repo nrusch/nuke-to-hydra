@@ -18,8 +18,8 @@ PXR_NAMESPACE_OPEN_SCOPE
 class HdNukeLightAdapter : public HdNukeAdapter
 {
 public:
-    HdNukeLightAdapter(const SdfPath& id, AdapterSharedState* statePtr,
-                       const LightOp* lightOp, const TfToken& lightType);
+    HdNukeLightAdapter(AdapterSharedState* statePtr, const LightOp* lightOp,
+                       const TfToken& lightType);
 
     const LightOp* GetLightOp() const { return _light; }
     const TfToken& GetLightType() const { return _lightType; }
@@ -28,7 +28,7 @@ public:
     inline void UpdateLastHash() { _lastHash = _light->hash(); }
     inline bool DirtyHash() const { return _lastHash != _light->hash(); }
 
-    GfMatrix4d GetTransform() const override;
+    GfMatrix4d GetTransform() const;
 
     VtValue GetLightParamValue(const TfToken& paramName) const;
 

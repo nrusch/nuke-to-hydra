@@ -36,11 +36,11 @@ inline GfMatrix4d DDToGfMatrix4d(const Matrix4& nukeMatrix)
 
 template <typename T>
 inline VtValue
-DDAttrToVtArrayValue(const Attribute* geoAttr)
+DDAttrToVtArrayValue(const Attribute& geoAttr)
 {
     VtArray<T> array;
-    const T* dataPtr = static_cast<const T*>(geoAttr->array());
-    array.assign(dataPtr, dataPtr + geoAttr->size());
+    const T* dataPtr = static_cast<const T*>(geoAttr.array());
+    array.assign(dataPtr, dataPtr + geoAttr.size());
     return VtValue::Take(array);
 }
 

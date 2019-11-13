@@ -1,5 +1,3 @@
-#include <pxr/base/gf/vec2f.h>
-
 #include <pxr/usd/usdGeom/tokens.h>
 
 #include <pxr/imaging/pxOsd/tokens.h>
@@ -12,31 +10,66 @@
 PXR_NAMESPACE_OPEN_SCOPE
 
 
-HdNukeGeoAdapter::HdNukeGeoAdapter(const SdfPath& id,
-                                   AdapterSharedState* statePtr,
-                                   GeoInfo& geoInfo)
-    : HdNukeAdapter(id, statePtr), _geo(&geoInfo)
+HdNukeGeoAdapter::HdNukeGeoAdapter(AdapterSharedState* statePtr)
+    : HdNukeAdapter(statePtr)
 {
-    // TODO: Figure out Rprim type
 }
 
-GfMatrix4d
-HdNukeGeoAdapter::GetTransform() const
+void
+HdNukeGeoAdapter::Update(const GeoInfo& geo, GeometryMask mask)
 {
-    TF_VERIFY(_geo);
-    return DDToGfMatrix4d(_geo->matrix);
+    /*
+    enum {
+      Mask_No_Geometry  = 0x00000000,
+      Mask_Primitives   = 0x00000001, //!< Primitive list
+      Mask_Vertices     = 0x00000002, //!< Vertex group
+      Mask_Points       = 0x00000004, //!< Point list
+      Mask_Object       = 0x00000008, //!< The Object
+      Mask_Matrix        = 0x00000010, //!< Local->World Transform Matrix
+      Mask_Attributes   = 0x00000020, //!< Attribute list
+    };
+    */
+
+    // TODO: Extent
+    if (mask & Mask_Matrix) {
+        _transform = DDToGfMatrix4d(geo.matrix);
+    }
+    if (mask & (Mask_Vertices | Mask_Primitives)) {
+        _RebuildMeshTopology(geo);
+    }
+    if (mask & Mask_Points) {
+        _RebuildPointList(geo);
+    }
+    if (mask & Mask_Attributes) {
+        _RebuildPrimvars(geo);
+    }
 }
 
-HdMeshTopology
-HdNukeGeoAdapter::GetMeshTopology() const
+HdPrimvarDescriptorVector
+HdNukeGeoAdapter::GetPrimvarDescriptors(HdInterpolation interpolation) const
 {
-    TF_VERIFY(_geo);
+    switch (interpolation) {
+        case HdInterpolationConstant:
+            return _constantPrimvarDescriptors;
+        case HdInterpolationUniform:
+            return _uniformPrimvarDescriptors;
+        case HdInterpolationVertex:
+            return _vertexPrimvarDescriptors;
+        case HdInterpolationFaceVarying:
+            return _faceVaryingPrimvarDescriptors;
+        default:
+            return HdPrimvarDescriptorVector();
+    }
+}
 
-    const uint32_t numPrimitives = _geo->primitives();
+void
+HdNukeGeoAdapter::_RebuildMeshTopology(const GeoInfo& geo)
+{
+    const uint32_t numPrimitives = geo.primitives();
 
     size_t totalFaces = 0;
     size_t totalVerts = 0;
-    const Primitive** primArray = _geo->primitive_array();
+    const Primitive** primArray = geo.primitive_array();
     for (size_t primIndex = 0; primIndex < numPrimitives; primIndex++)
     {
         totalFaces += primArray[primIndex]->faces();
@@ -76,211 +109,243 @@ HdNukeGeoAdapter::GetMeshTopology() const
         }
     }
 
-    return HdMeshTopology(PxOsdOpenSubdivTokens->smooth,
-                          UsdGeomTokens->rightHanded, faceVertexCounts,
-                          faceVertexIndices);
+    _topology = HdMeshTopology(PxOsdOpenSubdivTokens->smooth,
+                               UsdGeomTokens->rightHanded, faceVertexCounts,
+                               faceVertexIndices);
+}
+
+void HdNukeGeoAdapter::_RebuildPointList(const GeoInfo& geo)
+{
+    const PointList* pointList = geo.point_list();
+    if (ARCH_UNLIKELY(!pointList)) {
+        _points.clear();
+        return;
+    }
+
+    const auto* rawPoints = reinterpret_cast<const GfVec3f*>(pointList->data());
+    _points.assign(rawPoints, rawPoints + pointList->size());
 }
 
 VtValue
 HdNukeGeoAdapter::Get(const TfToken& key) const
 {
-    TF_VERIFY(_geo);
-
 // TODO: Attach node name as primvar
     if (key == HdTokens->points) {
-        const PointList* pointList = _geo->point_list();
-        if (ARCH_UNLIKELY(!pointList)) {
-            return VtValue();
-        }
-
-        const auto* rawPoints = reinterpret_cast<const GfVec3f*>(pointList->data());
-        VtVec3fArray ret;
-        ret.assign(rawPoints, rawPoints + pointList->size());
-        return VtValue::Take(ret);
+        return VtValue(_points);
     }
     else if (key == HdTokens->displayColor) {
         // TODO: Look up color from GeoInfo
         return VtValue(GetSharedState()->defaultDisplayColor);
     }
-
-    TfToken attrName;
-    bool isUV = false;
-    if (key == HdNukeTokens->st) {
-        attrName = HdNukeTokens->uv;
-        isUV = true;
-    }
-    else if (key == HdTokens->normals) {
-        attrName = HdNukeTokens->N;
-    }
-    else if (key == HdTokens->velocities) {
-        attrName = HdNukeTokens->vel;
-    }
-    else {
-        attrName = key;
+    else if (key == HdNukeTokens->st) {
+        return VtValue(_uvs);
     }
 
-    const Attribute* geoAttr = _geo->get_attribute(attrName.GetText());
-    if (ARCH_UNLIKELY(!geoAttr)) {
-        TF_WARN("HdNukeGeoAdapter::Get : No geo attribute matches name %s",
-                attrName.GetText());
-        return VtValue();
-    }
-    if (!geoAttr->valid()) {
-        TF_WARN("HdNukeGeoAdapter::Get : Invalid attribute: %s",
-                attrName.GetText());
-        return VtValue();
+    auto it = _primvarData.find(key);
+    if (it != _primvarData.end()) {
+        return it->second;
     }
 
-    if (isUV) {
-        return GetUVs(geoAttr);
-    }
-
-    if (geoAttr->size() == 1) {
-        void* rawData = geoAttr->array();
-        float* floatData = static_cast<float*>(rawData);
-
-        switch (geoAttr->type()) {
-            case FLOAT_ATTRIB:
-                return VtValue(floatData[0]);
-            case INT_ATTRIB:
-                return VtValue(static_cast<int32_t*>(rawData)[0]);
-            case STRING_ATTRIB:
-                return VtValue(std::string(static_cast<char**>(rawData)[0]));
-            case STD_STRING_ATTRIB:
-                return VtValue(static_cast<std::string*>(rawData)[0]);
-            case VECTOR2_ATTRIB:
-                return VtValue(GfVec2f(floatData));
-            case VECTOR3_ATTRIB:
-            case NORMAL_ATTRIB:
-                return VtValue(GfVec3f(floatData));
-            case VECTOR4_ATTRIB:
-                return VtValue(GfVec4f(floatData));
-            case MATRIX3_ATTRIB:
-                {
-                    GfMatrix3f gfMatrix;
-                    std::copy(floatData, floatData + 9, gfMatrix.data());
-                    return VtValue(gfMatrix);
-                }
-            case MATRIX4_ATTRIB:
-                {
-                    GfMatrix4f gfMatrix;
-                    std::copy(floatData, floatData + 16, gfMatrix.data());
-                    return VtValue(gfMatrix);
-                }
-        }
-    }
-    else {
-        switch (geoAttr->type()) {
-            case FLOAT_ATTRIB:
-                return DDAttrToVtArrayValue<float>(geoAttr);
-            case INT_ATTRIB:
-                return DDAttrToVtArrayValue<int32_t>(geoAttr);
-            case VECTOR2_ATTRIB:
-                return DDAttrToVtArrayValue<GfVec2f>(geoAttr);
-            case VECTOR3_ATTRIB:
-            case NORMAL_ATTRIB:
-                return DDAttrToVtArrayValue<GfVec3f>(geoAttr);
-            case VECTOR4_ATTRIB:
-                return DDAttrToVtArrayValue<GfVec4f>(geoAttr);
-            case MATRIX3_ATTRIB:
-                return DDAttrToVtArrayValue<GfMatrix3f>(geoAttr);
-            case MATRIX4_ATTRIB:
-                return DDAttrToVtArrayValue<GfMatrix4f>(geoAttr);
-            case STD_STRING_ATTRIB:
-                return DDAttrToVtArrayValue<std::string>(geoAttr);
-            // XXX: Ignoring char* array attrs for now... not sure whether they
-            // need special-case handling.
-            // case STRING_ATTRIB:
-        }
-    }
-
-    TF_WARN("HdNukeGeoAdapter::Get : Unhandled attribute type: %d",
-            geoAttr->type());
+    TF_WARN("HdNukeGeoAdapter::Get : Unrecognized key: %s", key.GetText());
     return VtValue();
 }
 
-VtValue
-HdNukeGeoAdapter::GetUVs(const Attribute* geoAttr) const
-{
-    VtArray<GfVec2f> array;
-    array.reserve(geoAttr->size());
-    float* dataPtr = static_cast<float*>(geoAttr->array());
-    float* outPtr = reinterpret_cast<float*>(array.data());
-    const auto width = geoAttr->data_elements();
-    for (size_t i = 0; i < geoAttr->size(); i++, dataPtr += width) {
-        *outPtr++ = dataPtr[0];
-        *outPtr++ = dataPtr[1];
-    }
-    return VtValue::Take(array);
-}
-
-HdPrimvarDescriptorVector
-HdNukeGeoAdapter::GetPrimvarDescriptors(HdInterpolation interpolation) const
+void
+HdNukeGeoAdapter::_RebuildPrimvars(const GeoInfo& geo)
 {
     // Group_Object      -> HdInterpolationConstant
     // Group_Primitives  -> HdInterpolationUniform
     // Group_Points (?)  -> HdInterpolationVertex
     // Group_Vertices    -> HdInterpolationFaceVarying
 
-    TF_VERIFY(_geo);
+    static HdPrimvarDescriptor displayColorDescriptor(
+            HdTokens->displayColor, HdInterpolationConstant,
+            HdPrimvarRoleTokens->color);
 
-    HdPrimvarDescriptorVector primvars;
-    GroupType attrGroupType;
+    // TODO: Try to reuse existing descriptors?
+    _constantPrimvarDescriptors.clear();
+    _constantPrimvarDescriptors.push_back(displayColorDescriptor);
+    _uniformPrimvarDescriptors.clear();
+    _vertexPrimvarDescriptors.clear();
+    _faceVaryingPrimvarDescriptors.clear();
 
-    switch (interpolation) {
-        case HdInterpolationConstant:
-            attrGroupType = Group_Object;
-            primvars.push_back(
-                HdPrimvarDescriptor(HdTokens->displayColor, interpolation,
-                                    HdPrimvarRoleTokens->color));
-            break;
-        case HdInterpolationUniform:
-            attrGroupType = Group_Primitives;
-            break;
-        case HdInterpolationVertex:
-            attrGroupType = Group_Points;
-            break;
-        case HdInterpolationFaceVarying:
-            attrGroupType = Group_Vertices;
-            break;
-        default:
-            return primvars;
-    }
+    _primvarData.clear();
+    _primvarData.reserve(geo.get_attribcontext_count());
 
-    for (const auto& attribCtx : _geo->get_cache_pointer()->attributes)
+    for (const auto& attribCtx : geo.get_cache_pointer()->attributes)
     {
-        if (attribCtx.group == attrGroupType and attribCtx.not_empty()) {
-            TfToken attribName(attribCtx.name);
-            TfToken role;
-            if (attribName == HdNukeTokens->Cf) {
-                role = HdPrimvarRoleTokens->color;
-            }
-            else if (attribName == HdNukeTokens->uv) {
-                attribName = HdNukeTokens->st;
-                role = HdPrimvarRoleTokens->textureCoordinate;
-            }
-            else if (attribName == HdNukeTokens->N) {
-                attribName = HdTokens->normals;
-                role = HdPrimvarRoleTokens->normal;
-            }
-            else if (attribName == HdNukeTokens->PW) {
-                role = HdPrimvarRoleTokens->point;
-            }
-            else if (attribName == HdNukeTokens->vel) {
-                attribName = HdTokens->velocities;
-                role = HdPrimvarRoleTokens->vector;
-            }
-            else {
-                role = HdPrimvarRoleTokens->none;
-            }
+        if (attribCtx.empty()) {
+            continue;
+        }
 
-            // Do we need to worry about AttribContext.varying?
-            primvars.push_back(
-                HdPrimvarDescriptor(attribName, interpolation, role));
+        TfToken primvarName(attribCtx.name);
+        TfToken role;
+
+        if (primvarName == HdNukeTokens->Cf) {
+            // attribName = HdTokens->faceColors;
+            role = HdPrimvarRoleTokens->color;
+        }
+        else if (primvarName == HdNukeTokens->uv) {
+            primvarName = HdNukeTokens->st;
+            role = HdPrimvarRoleTokens->textureCoordinate;
+        }
+        else if (primvarName == HdNukeTokens->N) {
+            primvarName = HdTokens->normals;
+            role = HdPrimvarRoleTokens->normal;
+        }
+        else if (primvarName == HdNukeTokens->PW) {
+            role = HdPrimvarRoleTokens->point;
+        }
+        else if (primvarName == HdNukeTokens->vel) {
+            primvarName = HdTokens->velocities;
+            role = HdPrimvarRoleTokens->vector;
+        }
+        else {
+            role = HdPrimvarRoleTokens->none;
+        }
+
+        switch (attribCtx.group) {
+            case Group_Object:
+                _constantPrimvarDescriptors.emplace_back(
+                    primvarName, HdInterpolationConstant, role);
+                break;
+            case Group_Primitives:
+                _uniformPrimvarDescriptors.emplace_back(
+                    primvarName, HdInterpolationUniform, role);
+                break;
+            case Group_Points:
+                _vertexPrimvarDescriptors.emplace_back(
+                    primvarName, HdInterpolationVertex, role);
+                break;
+            case Group_Vertices:
+                _faceVaryingPrimvarDescriptors.emplace_back(
+                    primvarName, HdInterpolationFaceVarying, role);
+                break;
+            default:
+                continue;
+        }
+
+        // Store attribute data
+        const Attribute& attribute = *attribCtx.attribute;
+        const AttribType attrType = attribute.type();
+
+        // XXX: Special case for UVs. Nuke typically stores UVs as Vector4 (for
+        // some inexplicable reason), but USD/Hydra conventions stipulate Vec2f.
+        // Thus, we do type conversion in the case of a float vecter attr with
+        // width > 2, just to be nice.
+        if (primvarName == HdNukeTokens->st and (attrType == VECTOR4_ATTRIB
+                                                 or attrType == VECTOR3_ATTRIB
+                                                 or attrType == NORMAL_ATTRIB))
+        {
+            const auto size = attribute.size();
+            _uvs.resize(size);
+            float* dataPtr = static_cast<float*>(attribute.array());
+            float* outPtr = reinterpret_cast<float*>(_uvs.data());
+            const auto width = attribute.data_elements();
+            for (size_t i = 0; i < size; i++, dataPtr += width) {
+                *outPtr++ = dataPtr[0];
+                *outPtr++ = dataPtr[1];
+            }
+            continue;
+        }
+
+        // General-purpose attribute conversions
+        if (attribute.size() == 1) {
+            void* rawData = attribute.array();
+            float* floatData = static_cast<float*>(rawData);
+
+            switch (attrType) {
+                case FLOAT_ATTRIB:
+                    _StorePrimvarScalar(primvarName, floatData[0]);
+                    break;
+                case INT_ATTRIB:
+                    _StorePrimvarScalar(primvarName,
+                                        static_cast<int32_t*>(rawData)[0]);
+                    break;
+                case STRING_ATTRIB:
+                    _StorePrimvarScalar(primvarName,
+                                        std::string(static_cast<char**>(rawData)[0]));
+                    break;
+                case STD_STRING_ATTRIB:
+                    _StorePrimvarScalar(primvarName,
+                                        static_cast<std::string*>(rawData)[0]);
+                    break;
+                case VECTOR2_ATTRIB:
+                    _StorePrimvarScalar(primvarName, GfVec2f(floatData));
+                    break;
+                case VECTOR3_ATTRIB:
+                case NORMAL_ATTRIB:
+                    _StorePrimvarScalar(primvarName, GfVec3f(floatData));
+                    break;
+                case VECTOR4_ATTRIB:
+                    _StorePrimvarScalar(primvarName, GfVec4f(floatData));
+                    break;
+                case MATRIX3_ATTRIB:
+                    {
+                        GfMatrix3f gfMatrix;
+                        std::copy(floatData, floatData + 9, gfMatrix.data());
+                        _StorePrimvarScalar(primvarName, gfMatrix);
+                    }
+                    break;
+                case MATRIX4_ATTRIB:
+                    {
+                        GfMatrix4f gfMatrix;
+                        std::copy(floatData, floatData + 16, gfMatrix.data());
+                        _StorePrimvarScalar(primvarName, gfMatrix);
+                    }
+                    break;
+                default:
+                    TF_WARN("HdNukeGeoAdapter::_RebuildPrimvars : Unhandled "
+                            "attribute type: %d", attrType);
+                    continue;
+            }
+        }
+        else {
+            switch (attrType) {
+                case FLOAT_ATTRIB:
+                    _StorePrimvarArray(primvarName,
+                                       DDAttrToVtArrayValue<float>(attribute));
+                    break;
+                case INT_ATTRIB:
+                    _StorePrimvarArray(primvarName,
+                                       DDAttrToVtArrayValue<int32_t>(attribute));
+                    break;
+                case VECTOR2_ATTRIB:
+                    _StorePrimvarArray(primvarName,
+                                       DDAttrToVtArrayValue<GfVec2f>(attribute));
+                    break;
+                case VECTOR3_ATTRIB:
+                case NORMAL_ATTRIB:
+                    _StorePrimvarArray(primvarName,
+                                       DDAttrToVtArrayValue<GfVec3f>(attribute));
+                    break;
+                case VECTOR4_ATTRIB:
+                    _StorePrimvarArray(primvarName,
+                                       DDAttrToVtArrayValue<GfVec4f>(attribute));
+                    break;
+                case MATRIX3_ATTRIB:
+                    _StorePrimvarArray(primvarName,
+                                       DDAttrToVtArrayValue<GfMatrix3f>(attribute));
+                    break;
+                case MATRIX4_ATTRIB:
+                    _StorePrimvarArray(primvarName,
+                                       DDAttrToVtArrayValue<GfMatrix4f>(attribute));
+                    break;
+                case STD_STRING_ATTRIB:
+                    _StorePrimvarArray(primvarName,
+                                       DDAttrToVtArrayValue<std::string>(attribute));
+                    break;
+                default:
+                    TF_WARN("HdNukeGeoAdapter::_RebuildPrimvars : Unhandled "
+                            "attribute type: %d", attrType);
+                    continue;
+
+                // XXX: Ignoring char* array attrs for now... not sure whether they
+                // need special-case handling.
+                // case STRING_ATTRIB:
+            }
         }
     }
-
-    return primvars;
 }
 
 

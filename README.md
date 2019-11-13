@@ -10,14 +10,13 @@ Hydra rendering in Nuke.
 - Add knobs to control output of depth, normals.
     - Support both depth and linearDepth (need to manually add the latter)
 - Add a knob to output all buffers for debugging.
+- Dynamic knobs for render delegate settings
 - Add knob to enable/disable lights, materials
 - Handle aborted() in engine during render
 - Manual abort mechanism for renders (cancel button?)
     - Keep an eye out for any way to hook a progress callback to Hydra
 - Produce some metadata
 - Storm support (2D and/or 3D)
-- Different rendering modes (wireframe, etc)?
-- Dynamic knobs for render delegate settings
 
 #### Scene Delegate
 
@@ -26,9 +25,6 @@ Hydra rendering in Nuke.
     - Need a fast way to identify GeoInfo type without having to look at all
       child primitives.
     - Need a render delegate that supports points in order to test this
-- Remap known attribute names to align with USD/Hd standards
-    - uv -> st
-    - N -> HdTokens->normals
 - Do we need to worry about `AttribContext.varying`?
 - Materials
     - UsdPreviewSurface
@@ -41,5 +37,4 @@ Hydra rendering in Nuke.
 #### Misc Notes
 
 - Might need/want to implement custom Hydra light ops
-- Need other (more capable) render delegates to test
 - Op to draw USD stage into the 3D viewer without creating geo

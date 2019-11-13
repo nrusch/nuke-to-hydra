@@ -12,13 +12,24 @@
 PXR_NAMESPACE_OPEN_SCOPE
 
 
-static SdfPath DELEGATE_ID(TfToken("/Nuke", TfToken::Immortal));
+static SdfPath DELEGATE_ID("/Nuke");
 static SdfPath GEO_ROOT = DELEGATE_ID.AppendChild(HdNukeTokens->Geo);
 static SdfPath LIGHT_ROOT = DELEGATE_ID.AppendChild(HdNukeTokens->Lights);
 static SdfPath MATERIAL_ROOT = DELEGATE_ID.AppendChild(HdNukeTokens->Materials);
 
 static SdfPath DEFAULT_MATERIAL =
     MATERIAL_ROOT.AppendChild(HdNukeTokens->defaultSurface);
+
+
+namespace
+{
+    inline SdfPath GetCleanOpPathTail(Op* op)
+    {
+        std::string tail(op->node_name());
+        std::replace(tail.begin(), tail.end(), '.', '/');
+        return SdfPath(tail);
+    }
+}  // namespace
 
 
 HdNukeSceneDelegate::HdNukeSceneDelegate(HdRenderIndex* renderIndex)
@@ -51,7 +62,6 @@ HdNukeSceneDelegate::GetTransform(const SdfPath& id)
 VtValue
 HdNukeSceneDelegate::Get(const SdfPath& id, const TfToken& key)
 {
-    std::cerr << "HdNukeSceneDelegate::Get : " << id << ", " << key.GetString() << std::endl;
     return GetGeoAdapter(id)->Get(key);
 }
 
@@ -95,27 +105,91 @@ HdNukeSceneDelegate::GetLightAdapter(const SdfPath& id) const
     return it == _lightAdapters.end() ? nullptr : it->second;
 }
 
-SdfPath
-HdNukeSceneDelegate::MakeRprimId(const GeoInfo& geoInfo) const
+TfToken
+HdNukeSceneDelegate::GetRprimType(const GeoInfo& geoInfo) const
 {
+    const Primitive* firstPrim = geoInfo.primitive(0);
+    if (firstPrim) {
+        switch (firstPrim->getPrimitiveType()) {
+            case eTriangle:
+            case ePolygon:
+            case eMesh:
+            case ePolyMesh:
+                return HdPrimTypeTokens->mesh;
+            // TODO
+            // case ePoint:
+            // case eParticles:
+            // case eParticlesSprite:
+            default:
+                break;
+        }
+    }
+    return TfToken();
+}
+
+SdfPath
+HdNukeSceneDelegate::GetRprimSubPath(const GeoInfo& geoInfo,
+                                     const TfToken& primType) const
+{
+    if (primType.IsEmpty()) {
+        return SdfPath();
+    }
+
+    // Look for an object-level "name" attribute on the geo, and if one is
+    // found, use that as the prim's sub-path.
+    const auto* nameCtx = geoInfo.get_group_attribcontext(Group_Object, "name");
+    if (nameCtx and not nameCtx->empty()
+            and (nameCtx->type == STRING_ATTRIB
+                 or nameCtx->type == STD_STRING_ATTRIB))
+    {
+        void* rawData = nameCtx->attribute->array();
+        std::string attrValue;
+        if (nameCtx->type == STD_STRING_ATTRIB) {
+            attrValue = static_cast<std::string*>(rawData)[0];
+        }
+        else {
+            attrValue = std::string(static_cast<char**>(rawData)[0]);
+        }
+
+        SdfPath result(attrValue);
+        if (result.IsAbsolutePath()) {
+            return result.MakeRelativePath(SdfPath::AbsoluteRootPath());
+        }
+        return result;
+    }
+
     std::ostringstream buf;
-    buf << "src_" << std::hex << geoInfo.src_id().value();
-    buf << "/out_" << geoInfo.out_id().value();
-    return GEO_ROOT.AppendPath(SdfPath(buf.str()));
+    buf << primType << '_' << std::hex << geoInfo.src_id().value();
+    return SdfPath(buf.str());
+}
+
+uint32_t
+HdNukeSceneDelegate::UpdateHashArray(const GeoOp* op, GeoOpHashArray& hashes) const
+{
+    uint32_t updateMask = 0;  // XXX: The mask enum in GeoInfo.h is untyped...
+    for (uint32_t i = 0; i < Group_Last; i++)
+    {
+        const Hash groupHash(op->hash(i));
+        if (groupHash != hashes[i]) {
+            updateMask |= 1 << i;
+        }
+        hashes[i] = groupHash;
+    }
+    return updateMask;
 }
 
 void
 HdNukeSceneDelegate::SetDefaultDisplayColor(GfVec3f color)
 {
-    if (color != sharedState.defaultDisplayColor) {
-        sharedState.defaultDisplayColor = color;
+    if (color == sharedState.defaultDisplayColor) {
+        return;
+    }
 
-        if (not _geoAdapters.empty()) {
-            HdChangeTracker& tracker = GetRenderIndex().GetChangeTracker();
-            for (const auto& adapterPair : _geoAdapters)
-            {
-                tracker.MarkPrimvarDirty(adapterPair.first, HdTokens->displayColor);
-            }
+    sharedState.defaultDisplayColor = color;
+    if (not _geoAdapters.empty()) {
+        HdChangeTracker& tracker = GetRenderIndex().GetChangeTracker();
+        for (auto it = _geoAdapters.cbegin(); it != _geoAdapters.cend(); it++) {
+            tracker.MarkPrimvarDirty(it->first, HdTokens->displayColor);
         }
     }
 }
@@ -123,94 +197,177 @@ HdNukeSceneDelegate::SetDefaultDisplayColor(GfVec3f color)
 void
 HdNukeSceneDelegate::SyncGeometry(GeoOp* op, GeometryList* geoList)
 {
-    std::cerr << "  GeoOp rebuild_mask: " << op->rebuild_mask() << std::endl;
-
-    // Compute the dirty bits for existing Rprims from the op's geometry hashes
-    std::array<Hash, Group_Last> opGeoHashes;
-    uint32_t updateMask = 0;  // XXX: The mask enum in GeoInfo.h is untyped...
-
-    for (uint32_t i = 0; i < Group_Last; i++)
-    {
-        const Hash groupHash(op->hash(i));
-        opGeoHashes[i] = groupHash;
-        if (groupHash != _geoHashes[i]) {
-            updateMask |= 1 << i;
-        }
-    }
-
-    // Replace stored hashes
-    opGeoHashes.swap(_geoHashes);
-
     if (geoList->size() == 0) {
         ClearGeo();
         return;
     }
 
-    HdDirtyBits dirtyBits = HdChangeTracker::Clean;
-    if (updateMask & (Mask_Primitives | Mask_Vertices)) {
-        dirtyBits |= (HdChangeTracker::DirtyTopology
-                      | HdChangeTracker::DirtyNormals
-                      | HdChangeTracker::DirtyWidths);
-    }
-    if (updateMask & Mask_Points) {
-        dirtyBits |= HdChangeTracker::DirtyPoints;
-    }
+    std::unordered_map<GeoOp*, SdfPath> opSubtreeMap;
+    std::unordered_map<GeoOp*, GeoInfoVector> opGeoMap;
 
-    if (updateMask & Mask_Matrix) {
-        dirtyBits |= HdChangeTracker::DirtyTransform;
-    }
-
-    if (updateMask & Mask_Matrix) {
-        dirtyBits |= HdChangeTracker::DirtyTransform;
-    }
-
-    if (updateMask & Mask_Attributes) {
-        dirtyBits |= HdChangeTracker::DirtyPrimvar;
-    }
-
-    const bool anyDirtyBits = dirtyBits != HdChangeTracker::Clean;
-
-    // Generate Rprim IDs for the GeoInfos in the scene
-    SdfPathMap<GeoInfo&> sceneGeoInfos;
-    sceneGeoInfos.reserve(geoList->size());
+    opSubtreeMap.reserve(op->inputs());  // Rough guess
 
     for (size_t i = 0; i < geoList->size(); i++)
     {
+        // TODO: Check if all geos from an op are processed sequentially, since
+        // that would allow us to optimize this.
         GeoInfo& geoInfo = geoList->object(i);
-        sceneGeoInfos.emplace(MakeRprimId(geoInfo), geoInfo);
+        GeoOp* sourceOp = op_cast<GeoOp*>(geoInfo.source_geo->firstOp());
+
+        if (opSubtreeMap.find(sourceOp) == opSubtreeMap.end()) {
+            opSubtreeMap.emplace(
+                sourceOp, GEO_ROOT.AppendPath(GetCleanOpPathTail(sourceOp)));
+        }
+
+        opGeoMap[sourceOp].push_back(&geoInfo);
     }
 
     HdRenderIndex& renderIndex = GetRenderIndex();
-    HdChangeTracker& changeTracker = renderIndex.GetChangeTracker();
 
-    // Remove Rprims whose IDs are not in the new scene.
-    for (auto it = _geoAdapters.begin(); it != _geoAdapters.end(); )
+    // Remove Rprim subtrees whose source GeoOps are not part of the new scene.
+    for (auto it = _opSubtrees.begin(); it != _opSubtrees.end(); )
     {
-        if (sceneGeoInfos.find(it->first) == sceneGeoInfos.end()) {
-            renderIndex.RemoveRprim(it->first);
-            it = _geoAdapters.erase(it);
+        if (opSubtreeMap.find(it->first) == opSubtreeMap.end()) {
+            std::cerr << "  RemoveSubtree : " << it->second << std::endl;
+
+            renderIndex.RemoveSubtree(it->second, this);
+            _opStateHashes.erase(it->first);
+            it = _opSubtrees.erase(it);
+            // TODO: Update other structures (maybe add a method)
         }
         else {
             it++;
         }
     }
 
-    // Insert new Rprims and mark existing ones dirty
-    for (const auto& sceneGeoPair : sceneGeoInfos)
+    // Add prims from new ops and compute updates from existing ones
+    for (const auto& opPathPair : opSubtreeMap)
     {
-        const SdfPath& primId = sceneGeoPair.first;
-        if (_geoAdapters.find(primId) == _geoAdapters.end()) {
-            auto adapterPtr = std::make_shared<HdNukeGeoAdapter>(
-                primId, &sharedState, sceneGeoPair.second);
-            _geoAdapters[primId] = adapterPtr;
+        GeoOp* sceneOp = opPathPair.first;
+        const SdfPath& subtree = opPathPair.second;
+        const GeoInfoVector& geoInfos = opGeoMap[sceneOp];
 
-            renderIndex.InsertRprim(HdPrimTypeTokens->mesh, this, primId);
+        if (_opSubtrees.find(sceneOp) == _opSubtrees.end()) {
+            _opSubtrees.emplace(sceneOp, subtree);
+            CreateOpGeo(sceneOp, subtree, geoInfos);
         }
         else {
-            if (anyDirtyBits) {
-                changeTracker.MarkRprimDirty(primId, dirtyBits);
-
+            UpdateOpGeo(sceneOp, subtree, geoInfos);
         }
+    }
+}
+
+void
+HdNukeSceneDelegate::CreateOpGeo(GeoOp* geoOp, const SdfPath& subtree,
+                                 const GeoInfoVector& geoInfos)
+{
+    GeoOpHashArray opHashes;
+    UpdateHashArray(geoOp, opHashes);
+    _opStateHashes.emplace(geoOp, std::move(opHashes));
+
+    HdRenderIndex& renderIndex = GetRenderIndex();
+
+    for (const GeoInfo* geoInfoPtr : geoInfos)
+    {
+        if (not geoInfoPtr) {
+            continue;
+        }
+        const GeoInfo& geoInfo = *geoInfoPtr;
+
+        TfToken primType = GetRprimType(geoInfo);
+        if (primType.IsEmpty()
+                or not renderIndex.IsRprimTypeSupported(primType)) {
+            continue;
+        }
+
+        SdfPath subPath = GetRprimSubPath(geoInfo, primType);
+        if (subPath.IsEmpty()) {
+            continue;
+        }
+
+        // TODO: Collisions?
+        SdfPath primId = subtree.AppendPath(subPath);
+        if (primId == SdfPath::EmptyPath()) {
+            continue;
+        }
+
+        auto adapterPtr = std::make_shared<HdNukeGeoAdapter>(&sharedState);
+        _geoAdapters.emplace(primId, adapterPtr);
+
+        // TODO: Check for collisions
+        _geoInfoPrimIds.emplace(geoInfo.src_id(), primId);
+
+        adapterPtr->Update(geoInfo);
+        renderIndex.InsertRprim(primType, this, primId);
+    }
+}
+
+void
+HdNukeSceneDelegate::UpdateOpGeo(GeoOp* geoOp, const SdfPath& subtree,
+                                 const GeoInfoVector& geoInfos)
+{
+    GeoOpHashArray& lastOpHashes = _opStateHashes[geoOp];
+    auto updateMask = UpdateHashArray(geoOp, lastOpHashes);
+
+    if (updateMask & Mask_Object) {
+        // Need to do granular Rprim pruning in here
+        // Check Mask_Object to decide whether we need to add/remove
+        // (need to verify that this works as expected)
+        ;
+    }
+
+    HdDirtyBits dirtyBits = HdChangeTracker::Clean;
+    if (updateMask & (Mask_Primitives | Mask_Vertices)) {
+        dirtyBits |= HdChangeTracker::DirtyTopology;
+    }
+    if (updateMask & Mask_Points) {
+        dirtyBits |= HdChangeTracker::DirtyPoints;
+    }
+    if (updateMask & Mask_Matrix) {
+        dirtyBits |= HdChangeTracker::DirtyTransform;
+    }
+    if (updateMask & Mask_Attributes) {
+        dirtyBits |= (HdChangeTracker::DirtyPrimvar
+                      | HdChangeTracker::DirtyNormals
+                      | HdChangeTracker::DirtyWidths);
+    }
+
+    if (dirtyBits == HdChangeTracker::Clean) {
+        return;
+    }
+
+    HdChangeTracker& changeTracker = GetRenderIndex().GetChangeTracker();
+    // TODO: geoInfos may be updated above...
+    for (const GeoInfo* geoInfoPtr : geoInfos)
+    {
+        if (not geoInfoPtr) {
+            continue;
+        }
+        const GeoInfo& geoInfo = *geoInfoPtr;
+
+        SdfPath primId;
+        const auto it = _geoInfoPrimIds.find(geoInfo.src_id());
+        if (it != _geoInfoPrimIds.end()) {
+            primId = it->second;
+            if (not primId.HasPrefix(subtree)) {
+                // TODO: Error
+                TF_WARN("No hit for src_id in GeoInfo prim ID map");
+                continue;
+            }
+        }
+        else {
+            SdfPath subPath = GetRprimSubPath(geoInfo, GetRprimType(geoInfo));
+            if (subPath.IsEmpty()) {
+                // Warn?
+                continue;
+            }
+            primId = subtree.AppendPath(subPath);
+        }
+
+        auto adapterPtr = _geoAdapters[primId];
+        adapterPtr->Update(geoInfo, updateMask);
+
+        changeTracker.MarkRprimDirty(primId, dirtyBits);
     }
 }
 
@@ -221,10 +378,11 @@ HdNukeSceneDelegate::SyncLights(std::vector<LightContext*> lights)
 
     for (const LightContext* lightCtx : lights)
     {
-        LightOp* lightOp = lightCtx->light();
-
-        SdfPath lightId = LIGHT_ROOT.AppendChild(TfToken(lightOp->node_name()));
-        sceneLights.emplace(lightId, lightOp);
+        LightOp* lightOp = dynamic_cast<LightOp*>(lightCtx->light()->firstOp());
+        if (lightOp) {
+            sceneLights.emplace(
+                LIGHT_ROOT.AppendPath(GetCleanOpPathTail(lightOp)), lightOp);
+        }
     }
 
     HdRenderIndex& renderIndex = GetRenderIndex();
@@ -287,8 +445,8 @@ HdNukeSceneDelegate::SyncLights(std::vector<LightContext*> lights)
         }
 
         auto adapterPtr = std::make_shared<HdNukeLightAdapter>(
-            lightId, &sharedState, lightOp, lightType);
-        _lightAdapters[lightId] = adapterPtr;
+            &sharedState, lightOp, lightType);
+        _lightAdapters.emplace(lightId, adapterPtr);
 
         renderIndex.InsertSprim(lightType, this, lightId);
     }
@@ -307,7 +465,6 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
     op->build_scene(_scene);
     GeometryList* geoList = _scene.object_list();
 
-
     SyncGeometry(op, geoList);
     SyncLights(_scene.lights);
 
@@ -322,7 +479,6 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
 void
 HdNukeSceneDelegate::ClearAll()
 {
-
     ClearGeo();
     ClearLights();
 }
@@ -331,10 +487,10 @@ void
 HdNukeSceneDelegate::ClearGeo()
 {
     _geoAdapters.clear();
+    _opSubtrees.clear();
+    _opStateHashes.clear();
+    _geoInfoPrimIds.clear();
     GetRenderIndex().RemoveSubtree(GEO_ROOT, this);
-    for (auto& hash : _geoHashes) {
-        hash.reset();
-    }
 }
 
 void

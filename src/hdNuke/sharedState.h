@@ -18,4 +18,4 @@ struct AdapterSharedState
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif // HDNUKE_SHAREDSTATE_H
+#endif  // HDNUKE_SHAREDSTATE_H
