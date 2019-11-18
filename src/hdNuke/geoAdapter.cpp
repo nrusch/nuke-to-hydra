@@ -16,31 +16,23 @@ HdNukeGeoAdapter::HdNukeGeoAdapter(AdapterSharedState* statePtr)
 }
 
 void
-HdNukeGeoAdapter::Update(const GeoInfo& geo, GeometryMask mask)
+HdNukeGeoAdapter::Update(const GeoInfo& geo, HdDirtyBits dirtyBits)
 {
-    /*
-    enum {
-      Mask_No_Geometry  = 0x00000000,
-      Mask_Primitives   = 0x00000001, //!< Primitive list
-      Mask_Vertices     = 0x00000002, //!< Vertex group
-      Mask_Points       = 0x00000004, //!< Point list
-      Mask_Object       = 0x00000008, //!< The Object
-      Mask_Matrix        = 0x00000010, //!< Local->World Transform Matrix
-      Mask_Attributes   = 0x00000020, //!< Attribute list
-    };
-    */
-
-    // TODO: Extent
-    if (mask & Mask_Matrix) {
+    if (dirtyBits & HdChangeTracker::DirtyTransform) {
         _transform = DDToGfMatrix4d(geo.matrix);
     }
-    if (mask & (Mask_Vertices | Mask_Primitives)) {
+
+    if (dirtyBits & HdChangeTracker::DirtyTopology) {
         _RebuildMeshTopology(geo);
     }
-    if (mask & Mask_Points) {
+
+    if (dirtyBits & HdChangeTracker::DirtyPoints) {
         _RebuildPointList(geo);
     }
-    if (mask & Mask_Attributes) {
+
+    if (dirtyBits & (HdChangeTracker::DirtyPrimvar
+                     | HdChangeTracker::DirtyNormals
+                     | HdChangeTracker::DirtyWidths)) {
         _RebuildPrimvars(geo);
     }
 }

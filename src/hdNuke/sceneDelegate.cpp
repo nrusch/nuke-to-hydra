@@ -309,6 +309,18 @@ HdNukeSceneDelegate::UpdateOpGeo(GeoOp* geoOp, const SdfPath& subtree,
     GeoOpHashArray& lastOpHashes = _opStateHashes[geoOp];
     auto updateMask = UpdateHashArray(geoOp, lastOpHashes);
 
+    /*
+    enum {
+      Mask_No_Geometry  = 0x00000000,
+      Mask_Primitives   = 0x00000001,  //!< Primitive list
+      Mask_Vertices     = 0x00000002,  //!< Vertex group
+      Mask_Points       = 0x00000004,  //!< Point list
+      Mask_Object       = 0x00000008,  //!< The Object
+      Mask_Matrix       = 0x00000010,  //!< Local->World Transform Matrix
+      Mask_Attributes   = 0x00000020,  //!< Attribute list
+    };
+    */
+
     if (updateMask & Mask_Object) {
         // Need to do granular Rprim pruning in here
         // Check Mask_Object to decide whether we need to add/remove
@@ -321,7 +333,8 @@ HdNukeSceneDelegate::UpdateOpGeo(GeoOp* geoOp, const SdfPath& subtree,
         dirtyBits |= HdChangeTracker::DirtyTopology;
     }
     if (updateMask & Mask_Points) {
-        dirtyBits |= HdChangeTracker::DirtyPoints;
+        dirtyBits |= (HdChangeTracker::DirtyPoints
+                     | HdChangeTracker::DirtyExtent);
     }
     if (updateMask & Mask_Matrix) {
         dirtyBits |= HdChangeTracker::DirtyTransform;
@@ -365,7 +378,7 @@ HdNukeSceneDelegate::UpdateOpGeo(GeoOp* geoOp, const SdfPath& subtree,
         }
 
         auto adapterPtr = _geoAdapters[primId];
-        adapterPtr->Update(geoInfo, updateMask);
+        adapterPtr->Update(geoInfo, dirtyBits);
 
         changeTracker.MarkRprimDirty(primId, dirtyBits);
     }

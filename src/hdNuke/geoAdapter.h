@@ -22,7 +22,8 @@ class HdNukeGeoAdapter : public HdNukeAdapter
 public:
     HdNukeGeoAdapter(AdapterSharedState* statePtr);
 
-    void Update(const GeoInfo& geo, GeometryMask mask = Mask_All_Geometry);
+    void Update(const GeoInfo& geo,
+                HdDirtyBits dirtyBits = HdChangeTracker::AllDirty);
 
     inline GfMatrix4d GetTransform() const { return _transform; }
 
