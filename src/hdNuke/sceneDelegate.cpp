@@ -65,6 +65,12 @@ HdNukeSceneDelegate::GetTransform(const SdfPath& id)
     return GfMatrix4d(1);
 }
 
+bool
+HdNukeSceneDelegate::GetVisible(const SdfPath& id)
+{
+    return GetGeoAdapter(id)->GetVisible();
+}
+
 VtValue
 HdNukeSceneDelegate::Get(const SdfPath& id, const TfToken& key)
 {
@@ -336,14 +342,16 @@ HdNukeSceneDelegate::UpdateOpGeo(GeoOp* geoOp, const SdfPath& subtree,
     };
     */
 
+    HdDirtyBits dirtyBits = HdChangeTracker::Clean;
     if (updateMask & Mask_Object) {
-        // Need to do granular Rprim pruning in here
+        // TODO: Need to do granular Rprim pruning in here
         // Check Mask_Object to decide whether we need to add/remove
         // (need to verify that this works as expected)
-        ;
+
+        // Mask_Object gets set for render mode changes as well
+        dirtyBits |= HdChangeTracker::DirtyVisibility;
     }
 
-    HdDirtyBits dirtyBits = HdChangeTracker::Clean;
     if (updateMask & (Mask_Primitives | Mask_Vertices)) {
         dirtyBits |= HdChangeTracker::DirtyTopology;
     }

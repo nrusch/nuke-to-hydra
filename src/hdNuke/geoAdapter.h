@@ -25,9 +25,11 @@ public:
     void Update(const GeoInfo& geo,
                 HdDirtyBits dirtyBits = HdChangeTracker::AllDirty);
 
+    inline GfRange3d GetExtent() const { return _extent; }
+
     inline GfMatrix4d GetTransform() const { return _transform; }
 
-    inline GfRange3d GetExtent() const { return _extent; }
+    inline bool GetVisible() const { return _visible; }
 
     inline HdMeshTopology GetMeshTopology() const { return _topology; }
 
@@ -54,6 +56,7 @@ private:
 
     GfMatrix4d _transform;
     GfRange3d _extent;
+    bool _visible = true;
 
     VtVec3fArray _points;
     VtVec2fArray _uvs;

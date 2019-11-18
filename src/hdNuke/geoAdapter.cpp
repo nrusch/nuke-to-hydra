@@ -22,6 +22,10 @@ HdNukeGeoAdapter::Update(const GeoInfo& geo, HdDirtyBits dirtyBits)
         _transform = DDToGfMatrix4d(geo.matrix);
     }
 
+    if (dirtyBits & HdChangeTracker::DirtyVisibility) {
+        _visible = geo.render_mode != RENDER_OFF;
+    }
+
     if (dirtyBits & HdChangeTracker::DirtyTopology) {
         _RebuildMeshTopology(geo);
     }

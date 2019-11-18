@@ -52,10 +52,6 @@ public:
 
 
 
-
-    // Currently this is only called with HdOptionTokens->parallelRprimSync.
-    bool IsEnabled(const TfToken& option) const override {
-        return false;
     }
 
     HdMeshTopology GetMeshTopology(const SdfPath& id) override;
@@ -64,19 +60,21 @@ public:
 
     GfMatrix4d GetTransform(const SdfPath& id) override;
 
+    bool GetVisible(const SdfPath& id) override;
+
     VtValue Get(const SdfPath& id, const TfToken& key) override;
 
     SdfPath GetMaterialId(const SdfPath& rprimId) override;
 
     VtValue GetMaterialResource(const SdfPath& materialId) override;
 
-    HdPrimvarDescriptorVector
-    GetPrimvarDescriptors(const SdfPath& id,
-                          HdInterpolation interpolation) override;
 
     VtValue GetLightParamValue(const SdfPath &id,
                                const TfToken& paramName) override;
 
+    HdPrimvarDescriptorVector
+    GetPrimvarDescriptors(const SdfPath& id,
+                          HdInterpolation interpolation) override;
 
     TfToken GetRprimType(const GeoInfo& geoInfo) const;
     SdfPath GetRprimSubPath(const GeoInfo& geoInfo,
