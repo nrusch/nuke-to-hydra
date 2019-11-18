@@ -44,6 +44,12 @@ HdNukeSceneDelegate::GetMeshTopology(const SdfPath& id)
     return GetGeoAdapter(id)->GetMeshTopology();
 }
 
+GfRange3d
+HdNukeSceneDelegate::GetExtent(const SdfPath& id)
+{
+    return GetGeoAdapter(id)->GetExtent();
+}
+
 GfMatrix4d
 HdNukeSceneDelegate::GetTransform(const SdfPath& id)
 {

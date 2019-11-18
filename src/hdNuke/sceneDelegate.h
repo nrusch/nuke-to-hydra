@@ -60,6 +60,8 @@ public:
 
     HdMeshTopology GetMeshTopology(const SdfPath& id) override;
 
+    GfRange3d GetExtent(const SdfPath& id) override;
+
     GfMatrix4d GetTransform(const SdfPath& id) override;
 
     VtValue Get(const SdfPath& id, const TfToken& key) override;

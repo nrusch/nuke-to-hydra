@@ -35,6 +35,13 @@ HdNukeGeoAdapter::Update(const GeoInfo& geo, HdDirtyBits dirtyBits)
                      | HdChangeTracker::DirtyWidths)) {
         _RebuildPrimvars(geo);
     }
+
+    if (dirtyBits & HdChangeTracker::DirtyExtent) {
+        const Vector3& min = geo.bbox().min();
+        const Vector3& max = geo.bbox().max();
+        _extent.SetMin(GfVec3d(min.x, min.y, min.z));
+        _extent.SetMax(GfVec3d(max.x, max.y, max.z));
+    }
 }
 
 HdPrimvarDescriptorVector

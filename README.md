@@ -20,7 +20,6 @@ Hydra rendering in Nuke.
 
 #### Scene Delegate
 
-- GetExtent impl
 - Particles
     - Need a fast way to identify GeoInfo type without having to look at all
       child primitives.
