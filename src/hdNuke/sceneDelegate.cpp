@@ -122,10 +122,19 @@ HdNukeSceneDelegate::GetRprimType(const GeoInfo& geoInfo) const
             case eMesh:
             case ePolyMesh:
                 return HdPrimTypeTokens->mesh;
-            // TODO
-            // case ePoint:
-            // case eParticles:
-            // case eParticlesSprite:
+            case eParticlesSprite:
+                return HdPrimTypeTokens->points;
+            // XXX: I have yet to encounter these, and I don't want to assume
+            // they will be just like eParticlesSprite, so I'm just leaving some
+            // canary warnings...
+            case ePoint:
+                TF_WARN("HdNukeSceneDelegate : Unhandled GeoInfo primitive "
+                        "type : ePoint");
+                break;
+            case eParticles:
+                TF_WARN("HdNukeSceneDelegate : Unhandled GeoInfo primitive "
+                        "type : eParticles");
+                break;
             default:
                 break;
         }

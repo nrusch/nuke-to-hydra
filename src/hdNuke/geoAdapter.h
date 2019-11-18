@@ -39,9 +39,9 @@ public:
     GetPrimvarDescriptors(HdInterpolation interpolation) const;
 
 private:
-    void _RebuildMeshTopology(const GeoInfo& geo);
     void _RebuildPointList(const GeoInfo& geo);
     void _RebuildPrimvars(const GeoInfo& geo);
+    void _RebuildMeshTopology(const GeoInfo& geo);
 
     template <typename T>
     inline void _StorePrimvarScalar(TfToken& key, const T& value) {

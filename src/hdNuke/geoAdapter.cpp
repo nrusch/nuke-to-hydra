@@ -192,6 +192,9 @@ HdNukeGeoAdapter::_RebuildPrimvars(const GeoInfo& geo)
             primvarName = HdTokens->normals;
             role = HdPrimvarRoleTokens->normal;
         }
+        else if (primvarName == HdNukeTokens->size) {
+            primvarName = HdTokens->widths;
+        }
         else if (primvarName == HdNukeTokens->PW) {
             role = HdPrimvarRoleTokens->point;
         }

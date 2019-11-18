@@ -21,9 +21,7 @@ Hydra rendering in Nuke.
 #### Scene Delegate
 
 - Particles
-    - Need a fast way to identify GeoInfo type without having to look at all
-      child primitives.
-    - Need a render delegate that supports points in order to test this
+    - Need to support instancing (for mesh scattering particle systems)
 - Do we need to worry about `AttribContext.varying`?
 - Materials
     - UsdPreviewSurface
