@@ -22,8 +22,7 @@ class HdNukeGeoAdapter : public HdNukeAdapter
 public:
     HdNukeGeoAdapter(AdapterSharedState* statePtr);
 
-    void Update(const GeoInfo& geo,
-                HdDirtyBits dirtyBits = HdChangeTracker::AllDirty);
+    void Update(const GeoInfo& geo, HdDirtyBits dirtyBits, bool isInstanced);
 
     inline GfRange3d GetExtent() const { return _extent; }
 

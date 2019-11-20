@@ -9,21 +9,10 @@
 #include <DDImage/Scene.h>
 
 #include "geoAdapter.h"
+#include "instancerAdapter.h"
 #include "lightAdapter.h"
 #include "sharedState.h"
-
-
-namespace std
-{
-    template<>
-    struct hash<Hash>
-    {
-        size_t operator()(const Hash& h) const
-        {
-            return h.value();
-        }
-    };
-}  // namespace std
+#include "types.h"
 
 
 using namespace DD::Image;
@@ -33,14 +22,6 @@ PXR_NAMESPACE_OPEN_SCOPE
 
 
 class GfVec3f;
-class HdRenderIndex;
-
-
-using GeoOpHashArray = std::array<Hash, Group_Last>;
-using GeoInfoVector = std::vector<const GeoInfo*>;
-
-template <typename T>
-using SdfPathMap = std::unordered_map<SdfPath, T, SdfPath::Hash>;
 
 
 class HdNukeSceneDelegate : public HdSceneDelegate
@@ -64,6 +45,8 @@ public:
 
     VtValue Get(const SdfPath& id, const TfToken& key) override;
 
+    VtIntArray GetInstanceIndices(const SdfPath& instancerId,
+                                  const SdfPath& prototypeId) override;
     SdfPath GetMaterialId(const SdfPath& rprimId) override;
 
     VtValue GetMaterialResource(const SdfPath& materialId) override;
@@ -80,9 +63,8 @@ public:
     SdfPath GetRprimSubPath(const GeoInfo& geoInfo,
                             const TfToken& primType) const;
 
-    uint32_t UpdateHashArray(const GeoOp* op, GeoOpHashArray& hashes) const;
-
     HdNukeGeoAdapterPtr GetGeoAdapter(const SdfPath& id) const;
+    HdNukeInstancerAdapterPtr GetInstancerAdapter(const SdfPath& id) const;
     HdNukeLightAdapterPtr GetLightAdapter(const SdfPath& id) const;
 
     void SetDefaultDisplayColor(GfVec3f color);
@@ -95,23 +77,25 @@ public:
     void ClearGeo();
     void ClearLights();
 
+    static uint32_t UpdateHashArray(const GeoOp* op, GeoOpHashArray& hashes);
+    static HdDirtyBits DirtyBitsFromUpdateMask(uint32_t updateMask);
+
 protected:
     void CreateOpGeo(GeoOp* geoOp, const SdfPath& subtree,
                      const GeoInfoVector& geoInfos);
     void UpdateOpGeo(GeoOp* geoOp, const SdfPath& subtree,
                      const GeoInfoVector& geoInfos);
+    inline void _RemoveRprim(const SdfPath& primId);
+    void _RemoveSubtree(const SdfPath& subtree);
 
 private:
     Scene _scene;
 
-    // May not want to store op pointers at all...
     std::unordered_map<GeoOp*, SdfPath> _opSubtrees;
     std::unordered_map<GeoOp*, GeoOpHashArray> _opStateHashes;
 
-    // Map GeoInfo.src_id() to prim ID
-    std::unordered_map<Hash, SdfPath> _geoInfoPrimIds;
-
     SdfPathMap<HdNukeGeoAdapterPtr> _geoAdapters;
+    SdfPathMap<HdNukeInstancerAdapterPtr> _instancerAdapters;
     SdfPathMap<HdNukeLightAdapterPtr> _lightAdapters;
 
     AdapterSharedState sharedState;

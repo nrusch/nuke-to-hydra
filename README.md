@@ -7,6 +7,7 @@ Hydra rendering in Nuke.
 #### HydraRender Op
 
 - Higher bit depth output
+- Work on getting more reliable cached output
 - Add knobs to control output of depth, normals.
     - Support both depth and linearDepth (need to manually add the latter)
 - Add a knob to output all buffers for debugging.
@@ -17,6 +18,7 @@ Hydra rendering in Nuke.
     - Keep an eye out for any way to hook a progress callback to Hydra
 - Produce some metadata
 - Storm support (2D and/or 3D)
+- Add some diagnostic display modes
 
 #### Scene Delegate
 

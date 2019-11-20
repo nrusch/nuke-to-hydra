@@ -16,9 +16,22 @@ HdNukeGeoAdapter::HdNukeGeoAdapter(AdapterSharedState* statePtr)
 }
 
 void
-HdNukeGeoAdapter::Update(const GeoInfo& geo, HdDirtyBits dirtyBits)
+HdNukeGeoAdapter::Update(const GeoInfo& geo, HdDirtyBits dirtyBits,
+                         bool isInstanced)
 {
-    if (dirtyBits & HdChangeTracker::DirtyTransform) {
+    if (dirtyBits == HdChangeTracker::Clean) {
+        return;
+    }
+    // XXX: For objects instanced by particle systems, Nuke includes the source
+    // object's transform in the final transform of the instance. However,
+    // because the render delegate will still query the scene delegate for the
+    // attributes of the source Rprim (including transform), and then try to
+    // concatenate them with the instance transform *itself*, we need to reset
+    // the source transform here so it doesn't get applied twice.
+    if (isInstanced) {
+        _transform.SetIdentity();
+    }
+    else if (dirtyBits & HdChangeTracker::DirtyTransform) {
         _transform = DDToGfMatrix4d(geo.matrix);
     }
 
