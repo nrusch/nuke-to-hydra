@@ -11,7 +11,7 @@ Hydra rendering in Nuke.
 - Add knobs to control output of depth, normals.
     - Support both depth and linearDepth (need to manually add the latter)
 - Add a knob to output all buffers for debugging.
-- Dynamic knobs for render delegate settings
+- "Manual Update" mode
 - Add knob to enable/disable lights, materials
 - Handle aborted() in engine during render
 - Manual abort mechanism for renders (cancel button?)

@@ -34,6 +34,10 @@ public:
 
     ~HydraRenderStack();
 
+    inline HdRenderDelegate* GetRenderDelegate() const {
+        return renderIndex->GetRenderDelegate();
+    }
+
     std::vector<HdRenderBuffer*> GetRenderBuffers() const;
 
     static HydraRenderStack* Create(TfToken pluginId);

@@ -1,6 +1,7 @@
 add_library(${HDNUKE_LIB_NAME} SHARED
     geoAdapter.cpp
     instancerAdapter.cpp
+    knobFactory.cpp
     lightAdapter.cpp
     materialAdapter.cpp
     renderStack.cpp

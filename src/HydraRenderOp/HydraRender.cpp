@@ -23,6 +23,7 @@
 #include <DDImage/Scene.h>
 #include <DDImage/Thread.h>
 
+#include <hdNuke/knobFactory.h>
 #include <hdNuke/renderStack.h>
 #include <hdNuke/utils.h>
 
@@ -75,7 +76,7 @@ _scanRendererPlugins()
 }  // namespace
 
 
-class HydraRender : public PlanarIop
+class HydraRender : public PlanarIop, public HdNukeKnobFactory
 {
 public:
     HydraRender(Node* node);
@@ -100,18 +101,27 @@ public:
     const char* node_help() const { return HELP; }
     static const Iop::Description desc;
 
+    void renderDelegateKnobCallback(Knob_Callback f);
+
+    static const std::string RENDERER_KNOB_PREFIX;
+    static void dynamicKnobCallback(void* ptr, Knob_Callback f);
+
 protected:
-    inline HdNukeSceneDelegate* sceneDelegate() const
-    {
+    inline HdNukeSceneDelegate* sceneDelegate() const {
         return _hydra->nukeDelegate;
     }
 
-    inline HdxTaskController* taskController() const
-    {
+    inline HdRenderDelegate* renderDelegate() const {
+        return _hydra->GetRenderDelegate();
+    }
+
+    inline HdxTaskController* taskController() const {
         return _hydra->taskController;
     }
 
-    void initRenderer();
+    void initRenderer() { initRenderer(_rendererId); }
+    void initRenderer(const std::string& delegateId);
+
     void copyBufferToImagePlane(HdRenderBuffer* buffer, ImagePlane& plane);
 
 private:
@@ -121,6 +131,9 @@ private:
     bool _needRender = false;
     Lock _engineLock;
 
+    std::vector<std::string> _delegateKnobNames;
+    std::unordered_map<std::string, HdRenderSettingDescriptor> _delegateSettings;
+
     // Knob storage
     FormatPair _formats;
     // We persist the selected renderer as a string rather than just an index,
@@ -128,6 +141,8 @@ private:
     std::string _rendererId;
     int _rendererIndex = 0;
     float _displayColor[3] = {0.18, 0.18, 0.18};
+    // The number of dynamic render delegate knobs, to pass to `replace_knobs`.
+    int _renderDelegateKnobCount = 0;
 
     // XXX: Temp - for testing
     const char* _usdFilePath;
@@ -137,6 +152,8 @@ private:
 
 static Iop* build(Node* node) { return new HydraRender(node); }
 const Iop::Description HydraRender::desc(CLASS, 0, build);
+
+const std::string HydraRender::RENDERER_KNOB_PREFIX("rd_");
 
 
 // -----------------
@@ -212,7 +229,8 @@ HydraRender::knobs(Knob_Callback f)
     Format_knob(f, &_formats, "format");
 
     String_knob(f, &_rendererId, "renderer_id");
-    SetFlags(f, Knob::INVISIBLE | Knob::ALWAYS_SAVE | Knob::KNOB_CHANGED_ALWAYS);
+    SetFlags(f, Knob::INVISIBLE | Knob::ALWAYS_SAVE | Knob::KNOB_CHANGED_ALWAYS
+                | Knob::KNOB_CHANGED_RECURSIVE);
 
     Knob* k = Enumeration_knob(f, &_rendererIndex, 0, "renderer");
     SetFlags(f, Knob::DO_NOT_WRITE | Knob::NO_RERENDER | Knob::EXPAND_TO_CONTENTS);
@@ -227,6 +245,13 @@ HydraRender::knobs(Knob_Callback f)
 
     Divider(f, "XXX: for testing");
     File_knob(f, &_usdFilePath, "usd_file", "usd file");
+
+    BeginClosedGroup(f, "renderer_knob_group", "render delegate settings");
+    int delegateKnobCount = add_knobs(dynamicKnobCallback, firstOp(), f);
+    if (f.makeKnobs()) {
+        _renderDelegateKnobCount = delegateKnobCount;
+    }
+    EndGroup(f);
 }
 
 int
@@ -256,6 +281,11 @@ HydraRender::knob_changed(Knob* k)
                 i++;
             }
         }
+        initRenderer(newId);
+        FreeDynamicKnobStorage();
+        _renderDelegateKnobCount = replace_knobs(knob("renderer_knob_group"),
+                                                 _renderDelegateKnobCount,
+                                                 dynamicKnobCallback, firstOp());
         return 1;
     }
     if (k->is("default_display_color")) {
@@ -265,6 +295,14 @@ HydraRender::knob_changed(Knob* k)
     if (k->is("force_update")) {
         sceneDelegate()->ClearAll();
         invalidate();
+        return 1;
+    }
+    if (k->startsWith(RENDERER_KNOB_PREFIX.c_str())) {
+        VtValue newValue = KnobToVtValue(k);
+        if (not newValue.IsEmpty()) {
+            const auto& setting = _delegateSettings[k->name()];
+            renderDelegate()->SetRenderSetting(setting.key, newValue);
+        }
         return 1;
     }
     return Iop::knob_changed(k);
@@ -392,6 +430,73 @@ HydraRender::renderStripe(ImagePlane& plane)
 }
 
 void
+HydraRender::renderDelegateKnobCallback(Knob_Callback f)
+{
+    if (not _hydra) {
+        initRenderer();
+        if (not _hydra) {
+            return;
+        }
+    }
+
+    if (f.makeKnobs()) {
+        auto settingsDescriptors = renderDelegate()->GetRenderSettingDescriptors();
+        _delegateKnobNames.clear();
+        _delegateKnobNames.reserve(settingsDescriptors.size());
+        _delegateSettings.clear();
+        _delegateSettings.reserve(settingsDescriptors.size());
+
+        for (const auto& setting : settingsDescriptors)
+        {
+            std::string knobName = setting.key.GetString();
+            std::replace(knobName.begin(), knobName.end(), ' ', '_');
+            knobName = RENDERER_KNOB_PREFIX + knobName;
+            _delegateKnobNames.push_back(knobName);
+            _delegateSettings.emplace(knobName, setting);
+        }
+    }
+
+    for (const auto& knobName : _delegateKnobNames)
+    {
+        HdRenderSettingDescriptor setting = _delegateSettings[knobName];
+        VtValueKnob(f, knobName, setting.name, setting.defaultValue);
+        SetFlags(f, Knob::STARTLINE);
+    }
+}
+
+void
+HydraRender::initRenderer(const std::string& delegateId)
+{
+    if (delegateId == _activeRenderer) {
+        return;
+    }
+
+    auto* dataPtr = HydraRenderStack::Create(TfToken(delegateId));
+    _hydra.reset(dataPtr);
+    _activeRenderer = delegateId;
+    if (dataPtr == nullptr) {
+        return;
+    }
+
+    sceneDelegate()->SetDefaultDisplayColor(GfVec3f(_displayColor));
+
+    taskController()->SetEnableSelection(false);
+
+    HdxRenderTaskParams renderTaskParams;
+    renderTaskParams.enableLighting = true;
+    renderTaskParams.enableSceneMaterials = true;
+    taskController()->SetRenderParams(renderTaskParams);
+
+    // To disable viewport rendering
+    taskController()->SetViewportRenderOutput(TfToken());
+
+    TfTokenVector renderTags;
+    renderTags.push_back(HdRenderTagTokens->geometry);
+    renderTags.push_back(HdRenderTagTokens->render);
+    taskController()->SetRenderTags(renderTags);
+}
+
+void
 HydraRender::copyBufferToImagePlane(HdRenderBuffer* buffer, ImagePlane& plane)
 {
     const HdFormat bufferFormat = buffer->GetFormat();
@@ -464,36 +569,12 @@ HydraRender::copyBufferToImagePlane(HdRenderBuffer* buffer, ImagePlane& plane)
     buffer->Unmap();
 }
 
+/* static */
 void
-HydraRender::initRenderer()
+HydraRender::dynamicKnobCallback(void* ptr, Knob_Callback f)
 {
-    if (_activeRenderer == _rendererId) {
-        return;
-    }
-
-    auto* dataPtr = HydraRenderStack::Create(TfToken(_rendererId));
-    _hydra.reset(dataPtr);
-    _activeRenderer = _rendererId;
-    if (dataPtr == nullptr) {
-        return;
-    }
-
-    sceneDelegate()->SetDefaultDisplayColor(GfVec3f(_displayColor));
-
-    taskController()->SetEnableSelection(false);
-
-    HdxRenderTaskParams renderTaskParams;
-    renderTaskParams.enableLighting = true;
-    renderTaskParams.enableSceneMaterials = true;
-    taskController()->SetRenderParams(renderTaskParams);
-
-    // To disable viewport rendering
-    taskController()->SetViewportRenderOutput(TfToken());
-
-    TfTokenVector renderTags;
-    renderTags.push_back(HdRenderTagTokens->geometry);
-    renderTags.push_back(HdRenderTagTokens->render);
-    taskController()->SetRenderTags(renderTags);
+    HydraRender* op = static_cast<HydraRender*>(ptr);
+    op->renderDelegateKnobCallback(f);
 }
 
 
