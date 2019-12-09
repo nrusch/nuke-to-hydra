@@ -21,7 +21,6 @@
 #include <DDImage/LUT.h>
 #include <DDImage/Row.h>
 #include <DDImage/Scene.h>
-#include <DDImage/Thread.h>
 
 #include <hdNuke/knobFactory.h>
 #include <hdNuke/renderStack.h>
@@ -38,44 +37,6 @@ static const char* const HELP =
     "Renders a Nuke 3D scene using a Hydra render delegate.";
 
 
-namespace {
-
-static TfTokenVector g_pluginIds;
-static std::vector<std::string> g_pluginKnobStrings;
-
-
-static void
-_scanRendererPlugins()
-{
-    static std::once_flag pluginInitFlag;
-
-    std::call_once(pluginInitFlag, [] {
-        HfPluginDescVector plugins;
-        HdRendererPluginRegistry::GetInstance().GetPluginDescs(&plugins);
-
-        g_pluginIds.reserve(plugins.size());
-        g_pluginKnobStrings.reserve(plugins.size());
-        std::ostringstream buf;
-
-        for (const auto& pluginDesc : plugins)
-        {
-            // FIXME: Skipping Storm for now (GL-only)
-            if (pluginDesc.id == "HdStormRendererPlugin") {
-                continue;
-            }
-
-            g_pluginIds.push_back(pluginDesc.id);
-            buf << pluginDesc.id.GetString() << '\t' << pluginDesc.displayName;
-            g_pluginKnobStrings.push_back(buf.str());
-            buf.str(std::string());
-            buf.clear();
-        }
-    });
-}
-
-}  // namespace
-
-
 class HydraRender : public PlanarIop, public HdNukeKnobFactory
 {
 public:
@@ -86,19 +47,23 @@ public:
     Op* default_input(int index) const override;
     bool test_input(int index, Op* op) const override;
 
-    void append(Hash& hash) override;
-
     void knobs(Knob_Callback f) override;
     int knob_changed(Knob* k) override;
 
+    void append(Hash& hash) override;
+
     void _validate(bool for_real) override;
+
     bool renderFullPlanes() const override { return true; }
+
     void getRequests(const Box& box, const ChannelSet& channels, int count,
                      RequestOutput &reqData) const override { }
+
     void renderStripe(ImagePlane& plane) override;
 
-    const char* Class() const { return CLASS; }
-    const char* node_help() const { return HELP; }
+    const char* Class() const override { return CLASS; }
+    const char* node_help() const override { return HELP; }
+
     static const Iop::Description desc;
 
     void renderDelegateKnobCallback(Knob_Callback f);
@@ -129,7 +94,6 @@ private:
     HdEngine _engine;
     std::string _activeRenderer;
     bool _needRender = false;
-    Lock _engineLock;
 
     std::vector<std::string> _delegateKnobNames;
     std::unordered_map<std::string, HdRenderSettingDescriptor> _delegateSettings;
@@ -156,13 +120,56 @@ const Iop::Description HydraRender::desc(CLASS, 0, build);
 const std::string HydraRender::RENDERER_KNOB_PREFIX("rd_");
 
 
+namespace {
+
+static TfTokenVector g_pluginIds;
+static std::vector<std::string> g_pluginKnobStrings;
+
+
+static void
+_scanRendererPlugins()
+{
+    static std::once_flag pluginInitFlag;
+
+    std::call_once(pluginInitFlag, [] {
+        HfPluginDescVector plugins;
+        HdRendererPluginRegistry::GetInstance().GetPluginDescs(&plugins);
+
+        g_pluginIds.reserve(plugins.size());
+        g_pluginKnobStrings.reserve(plugins.size());
+        std::ostringstream buf;
+
+        std::cerr << "Scanning renderer plugins" << std::endl;
+
+        for (const auto& pluginDesc : plugins)
+        {
+            std::cerr << "  " << pluginDesc.id << std::endl;
+
+            // FIXME: Skipping Storm for now (GL-only)
+            if (pluginDesc.id == "HdStormRendererPlugin") {
+                continue;
+            }
+
+            g_pluginIds.push_back(pluginDesc.id);
+            buf << pluginDesc.id.GetString() << '\t' << pluginDesc.displayName;
+            g_pluginKnobStrings.push_back(buf.str());
+            buf.str(std::string());
+            buf.clear();
+        }
+    });
+}
+
+}  // namespace
+
+
+
 // -----------------
 // Op Implementation
 // -----------------
 
 HydraRender::HydraRender(Node* node)
-        : PlanarIop(node),
-          _usdFilePath("")
+        : PlanarIop(node)
+        , _usdFilePath("")
 {
     _scanRendererPlugins();
 
@@ -205,7 +212,7 @@ HydraRender::test_input(int index, Op* op) const
     switch (index)
     {
         case 0:
-            return dynamic_cast<GeoOp*>(op) != nullptr;
+            return op_cast<GeoOp*>(op) != nullptr;
         case 1:
             return dynamic_cast<CameraOp*>(op) != nullptr;
     }
@@ -216,9 +223,9 @@ HydraRender::test_input(int index, Op* op) const
 void
 HydraRender::append(Hash& hash)
 {
-    // std::cerr << "HydraRender::append" << std::endl;
+    hash.append(outputContext().frame());
     Op::input(1)->append(hash);
-    if (GeoOp* geoOp = dynamic_cast<GeoOp*>(Op::input(0))) {
+    if (GeoOp* geoOp = op_cast<GeoOp*>(Op::input(0))) {
         geoOp->append(hash);
     }
 }
@@ -336,7 +343,7 @@ HydraRender::_validate(bool for_real)
     CameraOp* cam = dynamic_cast<CameraOp*>(Op::input(1));
     cam->validate(for_real);
 
-    if (GeoOp* geoOp = dynamic_cast<GeoOp*>(Op::input(0))) {
+    if (GeoOp* geoOp = op_cast<GeoOp*>(Op::input(0))) {
         geoOp->validate(for_real);
     }
 
@@ -372,7 +379,7 @@ HydraRender::renderStripe(ImagePlane& plane)
 {
 
     if (_needRender) {
-        if (GeoOp* geoOp = dynamic_cast<GeoOp*>(Op::input(0))) {
+        if (GeoOp* geoOp = op_cast<GeoOp*>(Op::input(0))) {
             sceneDelegate()->SyncFromGeoOp(geoOp);
         }
         else {
@@ -383,6 +390,9 @@ HydraRender::renderStripe(ImagePlane& plane)
         if (_stagePathChanged) {
             _hydra->loadUSDStage(_usdFilePath);
             _stagePathChanged = false;
+        }
+        if (_hydra->usdDelegate != nullptr) {
+            _hydra->usdDelegate->SetTime(outputContext().frame());
         }
 
 

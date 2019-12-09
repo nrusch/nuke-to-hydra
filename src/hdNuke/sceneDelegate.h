@@ -70,7 +70,7 @@ public:
     void SetDefaultDisplayColor(GfVec3f color);
 
     void SyncFromGeoOp(GeoOp* op);
-    void SyncGeometry(GeoOp* op, GeometryList* geoList);
+    void SyncGeometry(GeometryList* geoList);
     void SyncLights(std::vector<LightContext*> lights);
 
     void ClearAll();

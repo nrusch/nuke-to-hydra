@@ -229,7 +229,7 @@ HdNukeSceneDelegate::SetDefaultDisplayColor(GfVec3f color)
 }
 
 void
-HdNukeSceneDelegate::SyncGeometry(GeoOp* op, GeometryList* geoList)
+HdNukeSceneDelegate::SyncGeometry(GeometryList* geoList)
 {
     if (geoList->size() == 0) {
         ClearGeo();
@@ -327,7 +327,6 @@ HdNukeSceneDelegate::SyncGeometry(GeoOp* op, GeometryList* geoList)
                     instAdapter = std::make_shared<HdNukeInstancerAdapter>(
                         &sharedState);
                     _instancerAdapters.emplace(instancerId, instAdapter);
-
                     renderIndex.InsertInstancer(this, instancerId);
                     createdNewInstancer = true;
                 }
@@ -488,9 +487,8 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
     }
 
     op->build_scene(_scene);
-    GeometryList* geoList = _scene.object_list();
 
-    SyncGeometry(op, geoList);
+    SyncGeometry(_scene.object_list());
     SyncLights(_scene.lights);
 
     HdRenderIndex& renderIndex = GetRenderIndex();
