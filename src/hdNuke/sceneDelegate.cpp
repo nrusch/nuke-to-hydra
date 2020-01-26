@@ -74,7 +74,7 @@ HdNukeSceneDelegate::GetVisible(const SdfPath& id)
 VtValue
 HdNukeSceneDelegate::Get(const SdfPath& id, const TfToken& key)
 {
-    if (id.GetName() == HdTokens->instancer) {
+    if (id.GetName() == HdInstancerTokens->instancer) {
         return GetInstancerAdapter(id)->Get(key);
     }
     return GetGeoAdapter(id)->Get(key);
@@ -108,7 +108,7 @@ HdNukeSceneDelegate::GetPrimvarDescriptors(const SdfPath& id,
 {
     if (interpolation == HdInterpolationInstance) {
         HdPrimvarDescriptorVector primvars;
-        primvars.emplace_back(HdTokens->instanceTransform, interpolation);
+        primvars.emplace_back(HdInstancerTokens->instanceTransform, interpolation);
         return primvars;
     }
     else if (id.HasPrefix(GEO_ROOT)) {
@@ -318,7 +318,7 @@ HdNukeSceneDelegate::SyncGeometry(GeometryList* geoList)
                 continue;
             }
 
-            SdfPath instancerId = primId.AppendChild(HdTokens->instancer);
+            SdfPath instancerId = primId.AppendChild(HdInstancerTokens->instancer);
             HdNukeInstancerAdapterPtr instAdapter = GetInstancerAdapter(instancerId);
             bool createdNewInstancer = false;
 
@@ -529,7 +529,7 @@ HdNukeSceneDelegate::_RemoveRprim(const SdfPath& primId)
     HdRenderIndex& renderIndex = GetRenderIndex();
     renderIndex.RemoveSubtree(primId, this);
     _geoAdapters.erase(primId);
-    _instancerAdapters.erase(primId.AppendChild(HdTokens->instancer));
+    _instancerAdapters.erase(primId.AppendChild(HdInstancerTokens->instancer));
 }
 
 void
@@ -539,7 +539,7 @@ HdNukeSceneDelegate::_RemoveSubtree(const SdfPath& subtree)
     {
         const SdfPath& rprimPath = adapterIt->first;
         if (rprimPath.HasPrefix(subtree)) {
-            _instancerAdapters.erase(rprimPath.AppendChild(HdTokens->instancer));
+            _instancerAdapters.erase(rprimPath.AppendChild(HdInstancerTokens->instancer));
             adapterIt = _geoAdapters.erase(adapterIt);
         }
         else {

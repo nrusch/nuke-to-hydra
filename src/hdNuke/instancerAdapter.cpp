@@ -20,7 +20,7 @@ HdNukeInstancerAdapter::Update(const GeoInfoVector& geoInfoPtrs)
 VtValue
 HdNukeInstancerAdapter::Get(const TfToken& key) const
 {
-    if (key == HdTokens->instanceTransform) {
+    if (key == HdInstancerTokens->instanceTransform) {
         return VtValue(_instanceXforms);
     }
     return VtValue();

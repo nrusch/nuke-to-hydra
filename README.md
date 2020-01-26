@@ -22,12 +22,12 @@ Hydra rendering in Nuke.
 
 #### Scene Delegate
 
-- Particles
-    - Need to support instancing (for mesh scattering particle systems)
 - SampleTransform (motion blur) / SamplePrimvar
     - Need a render delegate that actually supports multiple samples first...
 - Materials
     - UsdPreviewSurface
+    - If Cf attribute exists, hook it up to a primvar sampler shading node
+    - Otherwise, use display color to drive shader color
     - Basic rprim colors from Nuke
     - Texturing support.
         - Render Nuke's material Iops to texture buffers (or temp files)

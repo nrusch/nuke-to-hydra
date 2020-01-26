@@ -51,7 +51,6 @@ public:
 
     VtValue GetMaterialResource(const SdfPath& materialId) override;
 
-
     VtValue GetLightParamValue(const SdfPath &id,
                                const TfToken& paramName) override;
 
