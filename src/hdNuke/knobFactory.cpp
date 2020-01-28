@@ -26,7 +26,7 @@ HdNukeKnobFactory::VtValueKnob(Knob_Callback f, const std::string& name,
 
     Knob* result = nullptr;
 
-    // TODO: Template this
+    // TODO: Template this (via typed storage class?)
     if (value.IsHolding<int>()) {
         int* data;
         auto it = _intKnobStorage.find(name);

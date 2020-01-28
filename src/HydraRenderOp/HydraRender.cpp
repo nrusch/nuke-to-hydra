@@ -347,7 +347,6 @@ HydraRender::_validate(bool for_real)
         geoOp->validate(for_real);
     }
 
-    // const Matrix4& nukeMatrix = cam->matrix();
     GfMatrix4d camGfMatrix = DDToGfMatrix4d(cam->matrix());
 
     // TODO:
@@ -377,7 +376,6 @@ HydraRender::_validate(bool for_real)
 void
 HydraRender::renderStripe(ImagePlane& plane)
 {
-
     if (_needRender) {
         if (GeoOp* geoOp = op_cast<GeoOp*>(Op::input(0))) {
             sceneDelegate()->SyncFromGeoOp(geoOp);

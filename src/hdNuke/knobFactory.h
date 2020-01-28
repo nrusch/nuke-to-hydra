@@ -22,8 +22,6 @@ public:
     Knob* VtValueKnob(Knob_Callback f, const std::string& name,
                       const std::string& label, const VtValue& value);
 
-    // VtValue KnobToVtValue(const std::string& name) const;
-
     void FreeDynamicKnobStorage();
 
     static VtValue KnobToVtValue(Knob* knob);

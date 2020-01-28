@@ -20,7 +20,7 @@ HdNukeMaterialAdapter::GetPreviewMaterialResource(const SdfPath& materialId)
 {
     HdMaterialNode node;
     node.identifier = UsdImagingTokens->UsdPreviewSurface;
-    node.path = materialId;
+    node.path = materialId.AppendChild(TfToken("Surface"));
     node.parameters = GetPreviewSurfaceParameters();
 
     HdMaterialNetwork network;

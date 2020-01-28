@@ -29,6 +29,11 @@ namespace
         std::replace(tail.begin(), tail.end(), '.', '/');
         return SdfPath(tail);
     }
+
+    inline SdfPath GetInstancerId(const SdfPath& primId)
+    {
+        return primId.AppendChild(HdInstancerTokens->instancer);
+    }
 }  // namespace
 
 
@@ -207,6 +212,8 @@ HdNukeSceneDelegate::GetRprimSubPath(const GeoInfo& geoInfo,
         return result;
     }
 
+    // Otherwise, use a combination of the RPrim type name and the GeoInfo's
+    // source hash to produce a (relatively) stable prim ID.
     std::ostringstream buf;
     buf << primType << '_' << std::hex << geoInfo.src_id().value();
     return SdfPath(buf.str());
@@ -297,8 +304,6 @@ HdNukeSceneDelegate::SyncGeometry(GeometryList* geoList)
 
         for (const auto& geoInfoIdEntry : geoSourceMapEntry.second)
         {
-            // Hash& geoSrcId = geoInfoIdEntry.first;
-
             const GeoInfoVector& geoInfos = geoInfoIdEntry.second;
             const GeoInfo& firstGeo = *geoInfos[0];
 
@@ -318,10 +323,12 @@ HdNukeSceneDelegate::SyncGeometry(GeometryList* geoList)
                 continue;
             }
 
-            SdfPath instancerId = primId.AppendChild(HdInstancerTokens->instancer);
+            SdfPath instancerId = GetInstancerId(primId);
             HdNukeInstancerAdapterPtr instAdapter = GetInstancerAdapter(instancerId);
-            bool createdNewInstancer = false;
 
+            // If more than one GeoInfo exists with the same source hash, make
+            // sure an instancer exists (or gets created) in the render index.
+            bool createdNewInstancer = false;
             if (geoInfos.size() > 1) {
                 if (not instAdapter) {
                     instAdapter = std::make_shared<HdNukeInstancerAdapter>(
@@ -344,7 +351,15 @@ HdNukeSceneDelegate::SyncGeometry(GeometryList* geoList)
             bool needNewPrim = false;
 
             if (createdNewInstancer and geoAdapter != nullptr) {
-                // Need to re-insert Rprim to create instancer relationship
+                // An Rprim already existed for this GeoInfo, but the number of
+                // GeoInfo's with the same source hash is now > 1, and we've
+                // added a new instancer as a result. Thus, we need to remove
+                // and then re-insert the Rprim to establish a relationship to
+                // the instancer.
+                // It would be nice if we could just inform the change tracker
+                // of this new relationship and move on, but HdPrim also keeps
+                // track of its own instancer ID (which is passed to its
+                // constructor), and there is no way to update it in place.
                 renderIndex.RemoveRprim(primId);
                 needNewPrim = true;
             }
@@ -358,10 +373,12 @@ HdNukeSceneDelegate::SyncGeometry(GeometryList* geoList)
             HdDirtyBits geoDirtyBits;
 
             if (needNewPrim) {
-                if (not instAdapter) {
-                    instancerId = SdfPath();
+                if (instAdapter) {
+                    renderIndex.InsertRprim(primType, this, primId, instancerId);
                 }
-                renderIndex.InsertRprim(primType, this, primId, instancerId);
+                else {
+                    renderIndex.InsertRprim(primType, this, primId);
+                }
                 geoDirtyBits = HdChangeTracker::AllDirty;
             }
             else {
@@ -440,7 +457,8 @@ HdNukeSceneDelegate::SyncLights(std::vector<LightContext*> lights)
                 lightType = HdPrimTypeTokens->sphereLight;
                 break;
             case LightOp::eOtherLight:
-                // XXX: The only other current type is an environment light...
+                // XXX: The only other current type is an environment light, but
+                // the node is missing a lot of necessary options...
                 lightType = HdPrimTypeTokens->domeLight;
                 break;
             default:
@@ -529,7 +547,7 @@ HdNukeSceneDelegate::_RemoveRprim(const SdfPath& primId)
     HdRenderIndex& renderIndex = GetRenderIndex();
     renderIndex.RemoveSubtree(primId, this);
     _geoAdapters.erase(primId);
-    _instancerAdapters.erase(primId.AppendChild(HdInstancerTokens->instancer));
+    _instancerAdapters.erase(GetInstancerId(primId));
 }
 
 void
@@ -539,7 +557,7 @@ HdNukeSceneDelegate::_RemoveSubtree(const SdfPath& subtree)
     {
         const SdfPath& rprimPath = adapterIt->first;
         if (rprimPath.HasPrefix(subtree)) {
-            _instancerAdapters.erase(rprimPath.AppendChild(HdInstancerTokens->instancer));
+            _instancerAdapters.erase(GetInstancerId(rprimPath));
             adapterIt = _geoAdapters.erase(adapterIt);
         }
         else {
@@ -572,10 +590,6 @@ HdNukeSceneDelegate::DirtyBitsFromUpdateMask(uint32_t updateMask)
 {
     HdDirtyBits dirtyBits = HdChangeTracker::Clean;
     if (updateMask & Mask_Object) {
-        // TODO: Need to do granular Rprim pruning in here
-        // Check Mask_Object to decide whether we need to add/remove
-        // (need to verify that this works as expected)
-
         // Mask_Object gets set for render mode changes as well
         dirtyBits |= HdChangeTracker::DirtyVisibility;
     }
