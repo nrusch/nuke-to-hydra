@@ -8,8 +8,10 @@ satisfied with various aspects of the design, and there are a lot of things that
 still need to be implemented, so please don't rely on anything remaining the way
 it is. In other words, I reserve the right to force-push to master.
 
-That said, if you have suggestions or are interested in contributing, feel free
-to open an issue or submit a PR.
+If all that hasn't scared you away, and you have suggestions or are interested
+in contributing, feel free to open an issue or submit a PR. I ask that PRs be at
+least somewhat substantive (no pure formatting/whitespace/comment/spelling
+updates), and I reserve the right to not accept them.
 
 ## (Mostly) Supported Features
 

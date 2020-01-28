@@ -15,7 +15,7 @@ target_include_directories(${HDNUKE_LIB_NAME}
 
 target_link_libraries(${HDNUKE_LIB_NAME}
     ${NUKE_DDIMAGE_LIBRARY}
-    arch hd)
+    arch hd usdGeom usdImaging)
 
 set_target_properties(${HDNUKE_LIB_NAME}
     PROPERTIES

@@ -24,8 +24,6 @@
 #include <pxr/imaging/hd/renderIndex.h>
 #include <pxr/imaging/hdx/taskController.h>
 
-#include <pxr/usdImaging/usdImaging/delegate.h>
-
 #include "sceneDelegate.h"
 
 
@@ -37,11 +35,9 @@ class HydraRenderStack
 public:
     HdRendererPlugin* rendererPlugin = nullptr;  // Ref-counted by Hydra
     HdRenderIndex* renderIndex = nullptr;
+    HdxTaskController* taskController = nullptr;
 
     HdNukeSceneDelegate* nukeDelegate = nullptr;
-    UsdImagingDelegate* usdDelegate = nullptr;
-
-    HdxTaskController* taskController = nullptr;
     HdRprimCollection primCollection;
 
     HydraRenderStack(HdRendererPlugin* pluginPtr);
@@ -55,9 +51,6 @@ public:
     std::vector<HdRenderBuffer*> GetRenderBuffers() const;
 
     static HydraRenderStack* Create(TfToken pluginId);
-
-    // XXX: For testing
-    void loadUSDStage(const char* usdFilePath);
 };
 
 

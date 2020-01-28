@@ -116,10 +116,6 @@ private:
     float _displayColor[3] = {0.18, 0.18, 0.18};
     // The number of dynamic render delegate knobs, to pass to `replace_knobs`.
     int _renderDelegateKnobCount = 0;
-
-    // XXX: Temp - for testing
-    const char* _usdFilePath;
-    bool _stagePathChanged = true;
 };
 
 
@@ -147,8 +143,6 @@ _scanRendererPlugins()
         g_pluginIds.reserve(plugins.size());
         g_pluginKnobStrings.reserve(plugins.size());
         std::ostringstream buf;
-
-        std::cerr << "Scanning renderer plugins" << std::endl;
 
         for (const auto& pluginDesc : plugins)
         {
@@ -178,7 +172,6 @@ _scanRendererPlugins()
 
 HydraRender::HydraRender(Node* node)
         : PlanarIop(node)
-        , _usdFilePath("")
 {
     _scanRendererPlugins();
 
@@ -259,9 +252,6 @@ HydraRender::knobs(Knob_Callback f)
     Button(f, "force_update", "force update");
     SetFlags(f, Knob::STARTLINE);
 
-    Divider(f, "XXX: for testing");
-    File_knob(f, &_usdFilePath, "usd_file", "usd file");
-
     BeginClosedGroup(f, "renderer_knob_group", "render delegate settings");
     int delegateKnobCount = add_knobs(dynamicKnobCallback, firstOp(), f);
     if (f.makeKnobs()) {
@@ -273,10 +263,6 @@ HydraRender::knobs(Knob_Callback f)
 int
 HydraRender::knob_changed(Knob* k)
 {
-    if (k->is("usd_file")) {
-        _stagePathChanged = true;
-        return 1;
-    }
     if (k->is("renderer")) {
         std::string newId = k->enumerationKnob()->getItemValueString(_rendererIndex);
         knob("renderer_id")->set_text(newId.c_str());
@@ -392,16 +378,6 @@ HydraRender::renderStripe(ImagePlane& plane)
         else {
             sceneDelegate()->ClearAll();
         }
-
-        // XXX: For building/testing
-        if (_stagePathChanged) {
-            _hydra->loadUSDStage(_usdFilePath);
-            _stagePathChanged = false;
-        }
-        if (_hydra->usdDelegate != nullptr) {
-            _hydra->usdDelegate->SetTime(outputContext().frame());
-        }
-
 
         auto tasks = taskController()->GetRenderingTasks();
         do {

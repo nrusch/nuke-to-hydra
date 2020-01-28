@@ -43,10 +43,6 @@ HydraRenderStack::~HydraRenderStack()
         delete taskController;
     }
 
-    if (usdDelegate != nullptr) {
-        delete usdDelegate;
-    }
-
     if (nukeDelegate != nullptr) {
         delete nukeDelegate;
     }
@@ -103,57 +99,6 @@ HydraRenderStack::Create(TfToken pluginId)
     }
 
     return new HydraRenderStack(plugin);
-}
-
-void
-HydraRenderStack::loadUSDStage(const char* usdFilePath)
-{
-    static SdfPath usdDelegateId("/USD_Scene");
-
-    if (usdDelegate != nullptr) {
-        renderIndex->RemoveSubtree(usdDelegateId, usdDelegate);
-        delete usdDelegate;
-        usdDelegate = nullptr;
-    }
-
-    if (strlen(usdFilePath) == 0) {
-        return;
-    }
-
-    if (auto stage = UsdStage::Open(usdFilePath)) {
-        // XXX: Basic up-axis correction for sanity
-        if (UsdGeomGetStageUpAxis(stage) == UsdGeomTokens->z) {
-            if (auto defaultPrim = stage->GetDefaultPrim()) {
-                if (defaultPrim.IsA<UsdGeomXformable>()) {
-                    stage->SetEditTarget(stage->GetSessionLayer());
-                    auto xform = UsdGeomXformable(defaultPrim);
-                    auto rotXop = xform.AddRotateXOp(
-                        UsdGeomXformOp::PrecisionDouble,
-                        TfToken("upAxisCorrection"));
-                    rotXop.Set<double>(-90);
-                }
-            }
-        }
-
-        TfTokenVector purposes;
-        purposes.push_back(UsdGeomTokens->default_);
-        purposes.push_back(UsdGeomTokens->render);
-
-        UsdGeomBBoxCache bboxCache(UsdTimeCode::Default(), purposes, true);
-
-        GfBBox3d bbox = bboxCache.ComputeWorldBound(stage->GetPseudoRoot());
-        GfRange3d world = bbox.ComputeAlignedRange();
-
-        GfVec3d worldCenter = (world.GetMin() + world.GetMax()) / 2.0;
-        double worldSize = world.GetSize().GetLength();
-
-        UsdPrim prim = stage->GetPseudoRoot();
-
-        if (usdDelegate == nullptr) {
-            usdDelegate = new UsdImagingDelegate(renderIndex, usdDelegateId);
-        }
-        usdDelegate->Populate(prim);
-    }
 }
 
 
