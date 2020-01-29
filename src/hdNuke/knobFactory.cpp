@@ -30,105 +30,49 @@ HdNukeKnobFactory::VtValueKnob(Knob_Callback f, const std::string& name,
     }
 
     if (value.IsArrayValued()) {
-        TF_WARN("Array value types are not supported for knob conversion: %s",
-                value.GetTypeName().c_str());
+        TF_WARN("Array value types are not currently supported for knob "
+                "conversion: %s", value.GetTypeName().c_str());
         return nullptr;
     }
 
+    Knob* knob = nullptr;
+
     // TODO: Vector types
-    size_t numElements = 1;
-
-    Knob* result = nullptr;
-
-    // TODO: Template this (via typed storage class?)
     if (value.IsHolding<int>()) {
-        int* data;
-        auto it = _intKnobStorage.find(name);
-        if (it == _intKnobStorage.end()) {
-            std::unique_ptr<int> storage(new int(value.UncheckedGet<int>()));
-            data = storage.get();
-            _intKnobStorage.emplace(name, std::move(storage));
-        }
-        else {
-            data = it->second.get();
-        }
-
-        Int_knob(f, data, name.c_str(), label.c_str());
+        int* data = _intKnobStorage.FindOrAllocate(name, value);
+        knob = Int_knob(f, data, name.c_str(), label.c_str());
     }
     else if (value.IsHolding<float>()) {
-        float* data;
-        auto it = _floatKnobStorage.find(name);
-        if (it == _floatKnobStorage.end()) {
-            std::unique_ptr<float[]> storage(new float[numElements]);
-            data = storage.get();
-            data[0] = value.UncheckedGet<float>();
-            _floatKnobStorage.emplace(name, std::move(storage));
-        }
-        else {
-            data = it->second.get();
-        }
-
-        Float_knob(f, data, name.c_str(), label.c_str());
+        float* data = _floatKnobStorage.FindOrAllocate(name, value);
+        knob = Float_knob(f, data, name.c_str(), label.c_str());
     }
     else if (value.IsHolding<double>()) {
-        double* data;
-        auto it = _doubleKnobStorage.find(name);
-        if (it == _doubleKnobStorage.end()) {
-            std::unique_ptr<double[]> storage(new double[numElements]);
-            data = storage.get();
-            data[0] = value.UncheckedGet<double>();
-            _doubleKnobStorage.emplace(name, std::move(storage));
-        }
-        else {
-            data = it->second.get();
-        }
-
-        Double_knob(f, data, name.c_str(), label.c_str());
+        double* data = _doubleKnobStorage.FindOrAllocate(name, value);
+        knob = Double_knob(f, data, name.c_str(), label.c_str());
     }
     else if (value.IsHolding<bool>()) {
-        bool* data;
-        auto it = _boolKnobStorage.find(name);
-        if (it == _boolKnobStorage.end()) {
-            std::unique_ptr<bool> storage(new bool(value.UncheckedGet<bool>()));
-            data = storage.get();
-            _boolKnobStorage.emplace(name, std::move(storage));
-        }
-        else {
-            data = it->second.get();
-        }
-
-        Bool_knob(f, data, name.c_str(), label.c_str());
+        bool* data = _boolKnobStorage.FindOrAllocate(name, value);
+        knob = Bool_knob(f, data, name.c_str(), label.c_str());
     }
     else if (value.IsHolding<std::string>()) {
-        std::string* data;
-        auto it = _stringKnobStorage.find(name);
-        if (it == _stringKnobStorage.end()) {
-            std::unique_ptr<std::string> storage(
-                new std::string(value.UncheckedGet<std::string>()));
-            data = storage.get();
-            _stringKnobStorage.emplace(name, std::move(storage));
-        }
-        else {
-            data = it->second.get();
-        }
-
-        String_knob(f, data, name.c_str(), label.c_str());
+        std::string* data = _stringKnobStorage.FindOrAllocate(name, value);
+        knob = String_knob(f, data, name.c_str(), label.c_str());
     }
     else {
         TF_WARN("Unsupported value type for knob conversion: %s",
                 value.GetTypeName().c_str());
     }
-    return result;
+    return knob;
 }
 
 void
 HdNukeKnobFactory::FreeDynamicKnobStorage()
 {
-    _intKnobStorage.clear();
-    _floatKnobStorage.clear();
-    _doubleKnobStorage.clear();
-    _boolKnobStorage.clear();
-    _stringKnobStorage.clear();
+    _intKnobStorage.Clear();
+    _floatKnobStorage.Clear();
+    _doubleKnobStorage.Clear();
+    _boolKnobStorage.Clear();
+    _stringKnobStorage.Clear();
 }
 
 /* static */

@@ -30,6 +30,35 @@ using namespace DD::Image;
 PXR_NAMESPACE_OPEN_SCOPE
 
 
+template <typename T>
+class KnobDataStore
+{
+public:
+
+    typedef std::unique_ptr<T> UniquePtrType;
+
+    T* FindOrAllocate(const std::string& name, const VtValue& initValue)
+    {
+        T* result = nullptr;
+        auto it = _data.find(name);
+        if (it == _data.end()) {
+            UniquePtrType storage(new T(initValue.UncheckedGet<T>()));
+            result = storage.get();
+            _data.emplace(name, std::move(storage));
+        }
+        else {
+            result = it->second.get();
+        }
+        return result;
+    }
+
+    inline void Clear() { _data.clear(); }
+
+private:
+    std::unordered_map<std::string, UniquePtrType> _data;
+};
+
+
 class HdNukeKnobFactory
 {
 public:
@@ -41,11 +70,11 @@ public:
     static VtValue KnobToVtValue(Knob* knob);
 
 private:
-    std::unordered_map<std::string, std::unique_ptr<int>> _intKnobStorage;
-    std::unordered_map<std::string, std::unique_ptr<float[]>> _floatKnobStorage;
-    std::unordered_map<std::string, std::unique_ptr<double[]>> _doubleKnobStorage;
-    std::unordered_map<std::string, std::unique_ptr<bool>> _boolKnobStorage;
-    std::unordered_map<std::string, std::unique_ptr<std::string>> _stringKnobStorage;
+    KnobDataStore<int> _intKnobStorage;
+    KnobDataStore<float> _floatKnobStorage;
+    KnobDataStore<double> _doubleKnobStorage;
+    KnobDataStore<bool> _boolKnobStorage;
+    KnobDataStore<std::string> _stringKnobStorage;
 };
 
 
