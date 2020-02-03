@@ -76,6 +76,7 @@ public:
     static const Iop::Description desc;
 
     void renderDelegateKnobCallback(Knob_Callback f);
+    inline void syncRenderDelegateSettingKnob(Knob* k);
 
     static const std::string RENDERER_KNOB_PREFIX;
     static void dynamicKnobCallback(void* ptr, Knob_Callback f);
@@ -114,8 +115,12 @@ private:
     std::string _rendererId;
     int _rendererIndex = 0;
     float _displayColor[3] = {0.18, 0.18, 0.18};
+
+    // The index of the first dynamic render delegate knob.
+    int _renderDelegateKnobStartIndex = -1;
     // The number of dynamic render delegate knobs, to pass to `replace_knobs`.
     int _renderDelegateKnobCount = 0;
+    bool _needDelegateKnobSync = true;
 };
 
 
@@ -253,6 +258,9 @@ HydraRender::knobs(Knob_Callback f)
     SetFlags(f, Knob::STARTLINE);
 
     BeginClosedGroup(f, "renderer_knob_group", "render delegate settings");
+    if (f.makeKnobs()) {
+        _renderDelegateKnobStartIndex = f.getKnobCount();
+    }
     int delegateKnobCount = add_knobs(dynamicKnobCallback, firstOp(), f);
     if (f.makeKnobs()) {
         _renderDelegateKnobCount = delegateKnobCount;
@@ -288,6 +296,7 @@ HydraRender::knob_changed(Knob* k)
         _renderDelegateKnobCount = replace_knobs(knob("renderer_knob_group"),
                                                  _renderDelegateKnobCount,
                                                  dynamicKnobCallback, firstOp());
+        _needDelegateKnobSync = true;
         return 1;
     }
     if (k->is("default_display_color")) {
@@ -300,11 +309,7 @@ HydraRender::knob_changed(Knob* k)
         return 1;
     }
     if (k->startsWith(RENDERER_KNOB_PREFIX.c_str())) {
-        VtValue newValue = KnobToVtValue(k);
-        if (not newValue.IsEmpty()) {
-            const auto& setting = _delegateSettings[k->name()];
-            renderDelegate()->SetRenderSetting(setting.key, newValue);
-        }
+        syncRenderDelegateSettingKnob(k);
         return 1;
     }
     return Iop::knob_changed(k);
@@ -362,6 +367,20 @@ HydraRender::_validate(bool for_real)
     GfFrustum frustum = gfCamera.GetFrustum();
     taskController()->SetFreeCameraMatrices(frustum.ComputeViewMatrix(),
                                             frustum.ComputeProjectionMatrix());
+
+    if (_needDelegateKnobSync and _renderDelegateKnobCount > 0
+            and _renderDelegateKnobStartIndex > 0)
+    {
+        const int lastIndex = _renderDelegateKnobStartIndex + _renderDelegateKnobCount;
+        for (int ki = _renderDelegateKnobStartIndex; ki <= lastIndex; ki++)
+        {
+            Knob* delegateKnob = knob(ki);
+            if (delegateKnob->not_default()) {
+                syncRenderDelegateSettingKnob(delegateKnob);
+            }
+        }
+        _needDelegateKnobSync = false;
+    }
 
     if (for_real) {
         _needRender = true;
@@ -423,6 +442,38 @@ HydraRender::renderStripe(ImagePlane& plane)
 }
 
 void
+HydraRender::initRenderer(const std::string& delegateId)
+{
+    if (delegateId == _activeRenderer) {
+        return;
+    }
+
+    auto* dataPtr = HydraRenderStack::Create(TfToken(delegateId));
+    _hydra.reset(dataPtr);
+    _activeRenderer = delegateId;
+    if (dataPtr == nullptr) {
+        return;
+    }
+
+    sceneDelegate()->SetDefaultDisplayColor(GfVec3f(_displayColor));
+
+    taskController()->SetEnableSelection(false);
+
+    HdxRenderTaskParams renderTaskParams;
+    renderTaskParams.enableLighting = true;
+    renderTaskParams.enableSceneMaterials = true;
+    taskController()->SetRenderParams(renderTaskParams);
+
+    // To disable viewport rendering
+    taskController()->SetViewportRenderOutput(TfToken());
+
+    TfTokenVector renderTags;
+    renderTags.push_back(HdRenderTagTokens->geometry);
+    renderTags.push_back(HdRenderTagTokens->render);
+    taskController()->SetRenderTags(renderTags);
+}
+
+void
 HydraRender::renderDelegateKnobCallback(Knob_Callback f)
 {
     if (not _hydra) {
@@ -457,36 +508,14 @@ HydraRender::renderDelegateKnobCallback(Knob_Callback f)
     }
 }
 
-void
-HydraRender::initRenderer(const std::string& delegateId)
+inline void
+HydraRender::syncRenderDelegateSettingKnob(Knob* k)
 {
-    if (delegateId == _activeRenderer) {
-        return;
+    VtValue newValue = KnobToVtValue(k);
+    if (not newValue.IsEmpty()) {
+        const auto& setting = _delegateSettings[k->name()];
+        renderDelegate()->SetRenderSetting(setting.key, newValue);
     }
-
-    auto* dataPtr = HydraRenderStack::Create(TfToken(delegateId));
-    _hydra.reset(dataPtr);
-    _activeRenderer = delegateId;
-    if (dataPtr == nullptr) {
-        return;
-    }
-
-    sceneDelegate()->SetDefaultDisplayColor(GfVec3f(_displayColor));
-
-    taskController()->SetEnableSelection(false);
-
-    HdxRenderTaskParams renderTaskParams;
-    renderTaskParams.enableLighting = true;
-    renderTaskParams.enableSceneMaterials = true;
-    taskController()->SetRenderParams(renderTaskParams);
-
-    // To disable viewport rendering
-    taskController()->SetViewportRenderOutput(TfToken());
-
-    TfTokenVector renderTags;
-    renderTags.push_back(HdRenderTagTokens->geometry);
-    renderTags.push_back(HdRenderTagTokens->render);
-    taskController()->SetRenderTags(renderTags);
 }
 
 void
