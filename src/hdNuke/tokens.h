@@ -24,9 +24,6 @@ PXR_NAMESPACE_OPEN_SCOPE
 
 
 #define HDNUKE_TOKENS                       \
-    (Geo)                                   \
-    (Lights)                                \
-    (Materials)                             \
     ((defaultSurface, "__defaultSurface"))  \
     (st)                                    \
     /* Attribute name constants */          \

@@ -82,18 +82,20 @@ public:
 
     void SetDefaultDisplayColor(GfVec3f color);
 
-    void SyncFromGeoOp(GeoOp* op);
-    void SyncGeometry(GeometryList* geoList);
-    void SyncLights(std::vector<LightContext*> lights);
+    void SyncFromGeoOp(GeoOp* geoOp);
 
     void ClearAll();
-    void ClearGeo();
-    void ClearLights();
 
     static uint32_t UpdateHashArray(const GeoOp* op, GeoOpHashArray& hashes);
     static HdDirtyBits DirtyBitsFromUpdateMask(uint32_t updateMask);
 
 protected:
+    void SyncNukeGeometry(GeometryList* geoList);
+    void SyncNukeLights(std::vector<LightContext*> lights);
+
+    void ClearNukeGeo();
+    void ClearNukeLights();
+
     void CreateOpGeo(GeoOp* geoOp, const SdfPath& subtree,
                      const GeoInfoVector& geoInfos);
     void UpdateOpGeo(GeoOp* geoOp, const SdfPath& subtree,

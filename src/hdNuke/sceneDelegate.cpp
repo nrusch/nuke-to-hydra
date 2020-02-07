@@ -26,11 +26,14 @@
 PXR_NAMESPACE_OPEN_SCOPE
 
 
-static SdfPath DELEGATE_ID("/Nuke");
-static SdfPath GEO_ROOT = DELEGATE_ID.AppendChild(HdNukeTokens->Geo);
-static SdfPath LIGHT_ROOT = DELEGATE_ID.AppendChild(HdNukeTokens->Lights);
-static SdfPath MATERIAL_ROOT = DELEGATE_ID.AppendChild(HdNukeTokens->Materials);
+static SdfPath DELEGATE_ID("/HdNuke");
+static SdfPath GEO_ROOT = DELEGATE_ID.AppendChild(TfToken("Geo"));
 
+static SdfPath LIGHT_ROOT = DELEGATE_ID.AppendChild(TfToken("Lights"));
+static SdfPath NUKE_LIGHT_ROOT = LIGHT_ROOT.AppendChild(TfToken("Nuke"));
+static SdfPath HYDRA_LIGHT_ROOT = LIGHT_ROOT.AppendChild(TfToken("Hydra"));
+
+static SdfPath MATERIAL_ROOT = DELEGATE_ID.AppendChild(TfToken("Materials"));
 static SdfPath DEFAULT_MATERIAL =
     MATERIAL_ROOT.AppendChild(HdNukeTokens->defaultSurface);
 
@@ -250,10 +253,10 @@ HdNukeSceneDelegate::SetDefaultDisplayColor(GfVec3f color)
 }
 
 void
-HdNukeSceneDelegate::SyncGeometry(GeometryList* geoList)
+HdNukeSceneDelegate::SyncNukeGeometry(GeometryList* geoList)
 {
     if (geoList->size() == 0) {
-        ClearGeo();
+        ClearNukeGeo();
         return;
     }
 
@@ -427,7 +430,7 @@ HdNukeSceneDelegate::SyncGeometry(GeometryList* geoList)
 }
 
 void
-HdNukeSceneDelegate::SyncLights(std::vector<LightContext*> lights)
+HdNukeSceneDelegate::SyncNukeLights(std::vector<LightContext*> lights)
 {
     SdfPathMap<LightOp*> sceneLights;
 
@@ -436,7 +439,7 @@ HdNukeSceneDelegate::SyncLights(std::vector<LightContext*> lights)
         LightOp* lightOp = dynamic_cast<LightOp*>(lightCtx->light()->firstOp());
         if (lightOp) {
             sceneLights.emplace(
-                LIGHT_ROOT.AppendPath(GetCleanOpPathTail(lightOp)), lightOp);
+                NUKE_LIGHT_ROOT.AppendPath(GetCleanOpPathTail(lightOp)), lightOp);
         }
     }
 
@@ -509,19 +512,19 @@ HdNukeSceneDelegate::SyncLights(std::vector<LightContext*> lights)
 }
 
 void
-HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
+HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* geoOp)
 {
-    TF_VERIFY(op);
+    TF_VERIFY(geoOp);
 
-    if (not op->valid()) {
-        TF_CODING_ERROR("SyncFromGeoOp called with invalid GeoOp");
+    if (not geoOp->valid()) {
+        TF_CODING_ERROR("SyncFromGeoOp called with unvalidated GeoOp");
         return;
     }
 
-    op->build_scene(_scene);
+    geoOp->build_scene(_scene);
 
-    SyncGeometry(_scene.object_list());
-    SyncLights(_scene.lights);
+    SyncNukeGeometry(_scene.object_list());
+    SyncNukeLights(_scene.lights);
 
     HdRenderIndex& renderIndex = GetRenderIndex();
 
@@ -534,12 +537,12 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* op)
 void
 HdNukeSceneDelegate::ClearAll()
 {
-    ClearGeo();
-    ClearLights();
+    ClearNukeGeo();
+    ClearNukeLights();
 }
 
 void
-HdNukeSceneDelegate::ClearGeo()
+HdNukeSceneDelegate::ClearNukeGeo()
 {
     _geoAdapters.clear();
     _instancerAdapters.clear();
@@ -549,10 +552,10 @@ HdNukeSceneDelegate::ClearGeo()
 }
 
 void
-HdNukeSceneDelegate::ClearLights()
+HdNukeSceneDelegate::ClearNukeLights()
 {
     _lightAdapters.clear();
-    GetRenderIndex().RemoveSubtree(LIGHT_ROOT, this);
+    GetRenderIndex().RemoveSubtree(NUKE_LIGHT_ROOT, this);
 }
 
 inline void
