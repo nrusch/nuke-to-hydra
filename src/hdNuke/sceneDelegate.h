@@ -32,12 +32,14 @@
 
 using namespace DD::Image;
 
-
 PXR_NAMESPACE_OPEN_SCOPE
 
 
 class GfVec3f;
 
+class HydraLightOp;
+class HydraPrimOp;
+class HydraPrimOpManager;
 
 class HdNukeSceneDelegate : public HdSceneDelegate
 {
@@ -85,9 +87,11 @@ public:
     void SetDefaultDisplayColor(GfVec3f color);
 
     void SyncFromGeoOp(GeoOp* geoOp);
+    void SyncHydraPrimOp(HydraPrimOp* primOp);
 
-    void ClearAll();
     void ClearNukePrims();
+    void ClearHydraPrims();
+    void ClearAll();
 
     static uint32_t UpdateHashArray(const GeoOp* op, GeoOpHashArray& hashes);
     static HdDirtyBits DirtyBitsFromUpdateMask(uint32_t updateMask);
@@ -96,17 +100,21 @@ protected:
     void SyncNukeGeometry(GeometryList* geoList);
     void SyncNukeLights(std::vector<LightContext*> lights);
 
-    void ClearNukeGeo();
-    void ClearNukeLights();
-
     void CreateOpGeo(GeoOp* geoOp, const SdfPath& subtree,
                      const GeoInfoVector& geoInfos);
     void UpdateOpGeo(GeoOp* geoOp, const SdfPath& subtree,
                      const GeoInfoVector& geoInfos);
+
+    void ClearNukeGeo();
+    void ClearNukeLights();
+
+
     inline void _RemoveRprim(const SdfPath& primId);
     void _RemoveSubtree(const SdfPath& subtree);
 
 private:
+    friend class HydraPrimOpManager;
+
     HdNukeDelegateConfig _config;
 
     Scene _scene;
@@ -118,6 +126,7 @@ private:
     SdfPathMap<HdNukeInstancerAdapterPtr> _instancerAdapters;
     SdfPathMap<HdNukeLightAdapterPtr> _lightAdapters;
 
+    SdfPathMap<HydraLightOp*> _hydraLightOps;
     AdapterSharedState sharedState;
     SdfPath _defaultMaterialId;
 };

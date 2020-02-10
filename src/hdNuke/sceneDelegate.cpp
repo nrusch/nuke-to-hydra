@@ -17,6 +17,7 @@
 #include <pxr/imaging/hd/renderIndex.h>
 
 #include "materialAdapter.h"
+#include "primOpManager.h"
 #include "sceneDelegate.h"
 #include "tokens.h"
 #include "utils.h"
@@ -546,9 +547,16 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* geoOp)
 }
 
 void
-HdNukeSceneDelegate::ClearAll()
+HdNukeSceneDelegate::SyncHydraPrimOp(HydraPrimOp* primOp)
+{
+    HydraPrimOpManager manager(this);
+    primOp->Populate(&manager);
+}
+
+void HdNukeSceneDelegate::ClearAll()
 {
     ClearNukePrims();
+    ClearHydraPrims();
 }
 
 void
@@ -573,6 +581,13 @@ HdNukeSceneDelegate::ClearNukeLights()
 {
     _lightAdapters.clear();
     GetRenderIndex().RemoveSubtree(GetConfig().NukeLightRoot(), this);
+}
+
+void
+HdNukeSceneDelegate::ClearHydraPrims()
+{
+    _hydraLightOps.clear();
+    GetRenderIndex().RemoveSubtree(GetConfig().HydraLightRoot(), this);
 }
 
 inline void

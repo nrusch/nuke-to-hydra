@@ -32,6 +32,7 @@
 #include <DDImage/Scene.h>
 
 #include <hdNuke/knobFactory.h>
+#include <hdNuke/opBases.h>
 #include <hdNuke/renderStack.h>
 #include <hdNuke/utils.h>
 
@@ -49,7 +50,7 @@ class HydraRender : public PlanarIop, public HdNukeKnobFactory
 {
 public:
     HydraRender(Node* node);
-    ~HydraRender();
+    ~HydraRender() override { }
 
     const char* input_label(int index, char*) const override;
     Op* default_input(int index) const override;
@@ -183,11 +184,7 @@ HydraRender::HydraRender(Node* node)
         _rendererId = g_pluginIds[0];
     }
 
-    inputs(2);
-}
-
-HydraRender::~HydraRender()
-{
+   inputs(3);
 }
 
 const char*
@@ -199,6 +196,8 @@ HydraRender::input_label(int index, char*) const
             return "Nuke Scene";
         case 1:
             return "Camera";
+        case 2:
+            return "Hydra Scene";
     }
     return "XXX";
 }
@@ -221,6 +220,8 @@ HydraRender::test_input(int index, Op* op) const
             return op_cast<GeoOp*>(op) != nullptr;
         case 1:
             return dynamic_cast<CameraOp*>(op) != nullptr;
+       case 2:
+           return dynamic_cast<HydraPrimOp*>(op) != nullptr;
     }
 
     return false;
@@ -230,9 +231,13 @@ void
 HydraRender::append(Hash& hash)
 {
     hash.append(outputContext().frame());
+
     Op::input(1)->append(hash);
     if (GeoOp* geoOp = op_cast<GeoOp*>(Op::input(0))) {
         geoOp->append(hash);
+    }
+    if (Op* hydraOp = Op::input(2)) {
+        hydraOp->append(hash);
     }
 }
 
@@ -345,6 +350,9 @@ HydraRender::_validate(bool for_real)
     if (GeoOp* geoOp = op_cast<GeoOp*>(Op::input(0))) {
         geoOp->validate(for_real);
     }
+    if (Op* hydraOp = Op::input(2)) {
+        hydraOp->validate(for_real);
+    }
 
     GfMatrix4d camGfMatrix = DDToGfMatrix4d(cam->matrix());
 
@@ -394,9 +402,15 @@ HydraRender::renderStripe(ImagePlane& plane)
             sceneDelegate()->SyncFromGeoOp(geoOp);
         }
         else {
-            sceneDelegate()->ClearAll();
+            sceneDelegate()->ClearNukePrims();
         }
 
+        if (HydraPrimOp* hydraOp = dynamic_cast<HydraPrimOp*>(Op::input(2))) {
+            sceneDelegate()->SyncHydraPrimOp(hydraOp);
+        }
+        else {
+            sceneDelegate()->ClearHydraPrims();
+        }
         auto tasks = taskController()->GetRenderingTasks();
         do {
             _engine.Execute(_hydra->renderIndex, &tasks);
