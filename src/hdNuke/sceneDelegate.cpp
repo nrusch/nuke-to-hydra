@@ -83,7 +83,7 @@ HdNukeSceneDelegate::GetTransform(const SdfPath& id)
     }
 
     TF_WARN("HdNukeSceneDelegate::GetTransform : Unrecognized prim id: %s",
-        id.GetText());
+            id.GetText());
     return GfMatrix4d(1);
 }
 
@@ -96,10 +96,19 @@ HdNukeSceneDelegate::GetVisible(const SdfPath& id)
 VtValue
 HdNukeSceneDelegate::Get(const SdfPath& id, const TfToken& key)
 {
-    if (id.GetName() == HdInstancerTokens->instancer) {
+    if (key == HdTokens->transform) {
+        return VtValue(GetTransform(id));
+    }
+
+    if (id.HasPrefix(GEO_ROOT)) {
+        return GetGeoAdapter(id)->Get(key);
+    }
+    else if (id.GetName() == HdInstancerTokens->instancer) {
         return GetInstancerAdapter(id)->Get(key);
     }
-    return GetGeoAdapter(id)->Get(key);
+    TF_WARN("HdNukeSceneDelegate::Get : Unrecognized prim id: %s (key: %s)",
+            id.GetText(), key.GetText());
+    return VtValue();
 }
 
 VtIntArray
@@ -374,7 +383,7 @@ HdNukeSceneDelegate::SyncNukeGeometry(GeometryList* geoList)
                 // and then re-insert the Rprim to establish a relationship to
                 // the instancer.
                 // It would be nice if we could just inform the change tracker
-                // of this new relationship and move on, but HdPrim also keeps
+                // of this new relationship and move on, but HdRprim also keeps
                 // track of its own instancer ID (which is passed to its
                 // constructor), and there is no way to update it in place.
                 renderIndex.RemoveRprim(primId);
