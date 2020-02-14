@@ -37,8 +37,7 @@
 
 
 using namespace DD::Image;
-
-PXR_NAMESPACE_OPEN_SCOPE
+PXR_NAMESPACE_USING_DIRECTIVE
 
 
 static const char* const CLASS = "HydraRender";
@@ -197,7 +196,7 @@ HydraRender::input_label(int index, char*) const
     switch (index)
     {
         case 0:
-            return "Scene";
+            return "Nuke Scene";
         case 1:
             return "Camera";
     }
@@ -598,6 +597,3 @@ HydraRender::dynamicKnobCallback(void* ptr, Knob_Callback f)
     HydraRender* op = static_cast<HydraRender*>(ptr);
     op->renderDelegateKnobCallback(f);
 }
-
-
-PXR_NAMESPACE_CLOSE_SCOPE
