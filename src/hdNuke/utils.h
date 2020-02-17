@@ -20,6 +20,7 @@
 #include <pxr/base/gf/matrix4d.h>
 
 #include <DDImage/Matrix4.h>
+#include <DDImage/Op.h>
 
 
 using namespace DD::Image;
@@ -46,6 +47,13 @@ inline GfMatrix4d DDToGfMatrix4d(const Matrix4& nukeMatrix)
     GfMatrix4d gfMatrix;
     std::copy(nukeMatrix.array(), nukeMatrix.array() + 16, gfMatrix.data());
     return gfMatrix;
+}
+
+inline SdfPath GetPathFromOp(const Op* op)
+{
+    std::string tail(op->node_name());
+    std::replace(tail.begin(), tail.end(), '.', '/');
+    return SdfPath(tail);
 }
 
 template <typename T>

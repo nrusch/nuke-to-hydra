@@ -16,37 +16,17 @@
 
 #include <pxr/imaging/hd/renderIndex.h>
 
-#include <DDImage/NodeI.h>
-
 #include "materialAdapter.h"
 #include "sceneDelegate.h"
 #include "tokens.h"
+#include "utils.h"
 
 
 PXR_NAMESPACE_OPEN_SCOPE
 
 
-static SdfPath DELEGATE_ID("/HdNuke");
-static SdfPath GEO_ROOT = DELEGATE_ID.AppendChild(TfToken("Geo"));
-
-static SdfPath LIGHT_ROOT = DELEGATE_ID.AppendChild(TfToken("Lights"));
-static SdfPath NUKE_LIGHT_ROOT = LIGHT_ROOT.AppendChild(TfToken("Nuke"));
-static SdfPath HYDRA_LIGHT_ROOT = LIGHT_ROOT.AppendChild(TfToken("Hydra"));
-
-static SdfPath MATERIAL_ROOT = DELEGATE_ID.AppendChild(TfToken("Materials"));
-static SdfPath DEFAULT_MATERIAL =
-    MATERIAL_ROOT.AppendChild(HdNukeTokens->defaultSurface);
-
-
 namespace
 {
-    inline SdfPath GetCleanOpPathTail(Op* op)
-    {
-        std::string tail(op->node_name());
-        std::replace(tail.begin(), tail.end(), '.', '/');
-        return SdfPath(tail);
-    }
-
     inline SdfPath GetInstancerId(const SdfPath& primId)
     {
         return primId.AppendChild(HdInstancerTokens->instancer);
@@ -55,9 +35,20 @@ namespace
 
 
 HdNukeSceneDelegate::HdNukeSceneDelegate(HdRenderIndex* renderIndex)
-    : HdSceneDelegate(renderIndex, DELEGATE_ID)
+    : HdSceneDelegate(renderIndex, HdNukeDelegateConfig::DefaultDelegateID)
+    , _config(HdNukeDelegateConfig::DefaultDelegateID)
 {
+    _defaultMaterialId = GetConfig().MaterialRoot().AppendChild(
+           HdNukePathTokens->defaultSurface);
+}
 
+HdNukeSceneDelegate::HdNukeSceneDelegate(HdRenderIndex* renderIndex,
+                                         const SdfPath& delegateId)
+    : HdSceneDelegate(renderIndex, delegateId)
+    , _config(delegateId)
+{
+    _defaultMaterialId = GetConfig().MaterialRoot().AppendChild(
+           HdNukePathTokens->defaultSurface);
 }
 
 HdMeshTopology
@@ -75,10 +66,10 @@ HdNukeSceneDelegate::GetExtent(const SdfPath& id)
 GfMatrix4d
 HdNukeSceneDelegate::GetTransform(const SdfPath& id)
 {
-    if (id.HasPrefix(GEO_ROOT)) {
+    if (id.HasPrefix(GetConfig().GeoRoot())) {
         return GetGeoAdapter(id)->GetTransform();
     }
-    else if (id.HasPrefix(LIGHT_ROOT)) {
+    else if (id.HasPrefix(GetConfig().NukeLightRoot())) {
         return GetLightAdapter(id)->GetTransform();
     }
 
@@ -100,7 +91,7 @@ HdNukeSceneDelegate::Get(const SdfPath& id, const TfToken& key)
         return VtValue(GetTransform(id));
     }
 
-    if (id.HasPrefix(GEO_ROOT)) {
+    if (id.HasPrefix(GetConfig().GeoRoot())) {
         return GetGeoAdapter(id)->Get(key);
     }
     else if (id.GetName() == HdInstancerTokens->instancer) {
@@ -124,7 +115,7 @@ HdNukeSceneDelegate::GetInstanceIndices(const SdfPath& instancerId,
 SdfPath
 HdNukeSceneDelegate::GetMaterialId(const SdfPath& rprimId)
 {
-    return DEFAULT_MATERIAL;
+    return DefaultMaterialId();
 }
 
 VtValue
@@ -142,7 +133,7 @@ HdNukeSceneDelegate::GetPrimvarDescriptors(const SdfPath& id,
         primvars.emplace_back(HdInstancerTokens->instanceTransform, interpolation);
         return primvars;
     }
-    else if (id.HasPrefix(GEO_ROOT)) {
+    else if (id.HasPrefix(GetConfig().GeoRoot())) {
         return GetGeoAdapter(id)->GetPrimvarDescriptors(interpolation);
     }
     return HdPrimvarDescriptorVector();
@@ -152,7 +143,10 @@ VtValue
 HdNukeSceneDelegate::GetLightParamValue(const SdfPath& id,
                                         const TfToken& paramName)
 {
-    return GetLightAdapter(id)->GetLightParamValue(paramName);
+    if (id.HasPrefix(GetConfig().NukeLightRoot())) {
+        return GetLightAdapter(id)->GetLightParamValue(paramName);
+    }
+    return VtValue();
 }
 
 HdNukeGeoAdapterPtr
@@ -272,14 +266,15 @@ HdNukeSceneDelegate::SyncNukeGeometry(GeometryList* geoList)
     std::unordered_map<GeoOp*, SdfPath> opSubtreeMap;
     std::unordered_map<GeoOp*, std::unordered_map<Hash, GeoInfoVector>> geoSourceMap;
 
+    const SdfPath& geoRoot = GetConfig().GeoRoot();
     for (size_t i = 0; i < geoList->size(); i++)
     {
         GeoInfo& geoInfo = geoList->object(i);
         GeoOp* sourceOp = op_cast<GeoOp*>(geoInfo.source_geo->firstOp());
 
         if (opSubtreeMap.find(sourceOp) == opSubtreeMap.end()) {
-            opSubtreeMap.emplace(
-                sourceOp, GEO_ROOT.AppendPath(GetCleanOpPathTail(sourceOp)));
+            opSubtreeMap.emplace(sourceOp,
+                                 geoRoot.AppendPath(GetPathFromOp(sourceOp)));
         }
 
         geoSourceMap[sourceOp][geoInfo.src_id()].push_back(&geoInfo);
@@ -443,12 +438,13 @@ HdNukeSceneDelegate::SyncNukeLights(std::vector<LightContext*> lights)
 {
     SdfPathMap<LightOp*> sceneLights;
 
+    const SdfPath& lightParent = GetConfig().NukeLightRoot();
     for (const LightContext* lightCtx : lights)
     {
         LightOp* lightOp = dynamic_cast<LightOp*>(lightCtx->light()->firstOp());
         if (lightOp) {
-            sceneLights.emplace(
-                NUKE_LIGHT_ROOT.AppendPath(GetCleanOpPathTail(lightOp)), lightOp);
+            sceneLights.emplace(lightParent.AppendPath(GetPathFromOp(lightOp)),
+                                lightOp);
         }
     }
 
@@ -537,14 +533,21 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* geoOp)
 
     HdRenderIndex& renderIndex = GetRenderIndex();
 
+    // XXX: Temporary, until Hydra material ops are implemented
     if (renderIndex.IsSprimTypeSupported(HdPrimTypeTokens->material)) {
         renderIndex.InsertSprim(
-            HdPrimTypeTokens->material, this, DEFAULT_MATERIAL);
+            HdPrimTypeTokens->material, this, DefaultMaterialId());
     }
 }
 
 void
 HdNukeSceneDelegate::ClearAll()
+{
+    ClearNukePrims();
+}
+
+void
+HdNukeSceneDelegate::ClearNukePrims()
 {
     ClearNukeGeo();
     ClearNukeLights();
@@ -557,14 +560,14 @@ HdNukeSceneDelegate::ClearNukeGeo()
     _instancerAdapters.clear();
     _opSubtrees.clear();
     _opStateHashes.clear();
-    GetRenderIndex().RemoveSubtree(GEO_ROOT, this);
+    GetRenderIndex().RemoveSubtree(GetConfig().GeoRoot(), this);
 }
 
 void
 HdNukeSceneDelegate::ClearNukeLights()
 {
     _lightAdapters.clear();
-    GetRenderIndex().RemoveSubtree(NUKE_LIGHT_ROOT, this);
+    GetRenderIndex().RemoveSubtree(GetConfig().NukeLightRoot(), this);
 }
 
 inline void

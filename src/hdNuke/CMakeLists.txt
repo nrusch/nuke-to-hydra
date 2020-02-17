@@ -1,4 +1,5 @@
 add_library(${HDNUKE_LIB_NAME} SHARED
+    delegateConfig.cpp
     geoAdapter.cpp
     instancerAdapter.cpp
     knobFactory.cpp

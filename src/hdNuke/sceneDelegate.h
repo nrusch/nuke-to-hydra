@@ -22,6 +22,7 @@
 #include <DDImage/GeoOp.h>
 #include <DDImage/Scene.h>
 
+#include "delegateConfig.h"
 #include "geoAdapter.h"
 #include "instancerAdapter.h"
 #include "lightAdapter.h"
@@ -42,6 +43,7 @@ class HdNukeSceneDelegate : public HdSceneDelegate
 {
 public:
     HdNukeSceneDelegate(HdRenderIndex* renderIndex);
+    HdNukeSceneDelegate(HdRenderIndex* renderIndex, const SdfPath& delegateId);
 
     ~HdNukeSceneDelegate() { }
 
@@ -68,9 +70,13 @@ public:
     GetPrimvarDescriptors(const SdfPath& id,
                           HdInterpolation interpolation) override;
 
+    inline const HdNukeDelegateConfig& GetConfig() const { return _config; }
+
     TfToken GetRprimType(const GeoInfo& geoInfo) const;
     SdfPath GetRprimSubPath(const GeoInfo& geoInfo,
                             const TfToken& primType) const;
+
+    inline const SdfPath& DefaultMaterialId() const { return _defaultMaterialId; }
 
     HdNukeGeoAdapterPtr GetGeoAdapter(const SdfPath& id) const;
     HdNukeInstancerAdapterPtr GetInstancerAdapter(const SdfPath& id) const;
@@ -81,6 +87,7 @@ public:
     void SyncFromGeoOp(GeoOp* geoOp);
 
     void ClearAll();
+    void ClearNukePrims();
 
     static uint32_t UpdateHashArray(const GeoOp* op, GeoOpHashArray& hashes);
     static HdDirtyBits DirtyBitsFromUpdateMask(uint32_t updateMask);
@@ -100,6 +107,8 @@ protected:
     void _RemoveSubtree(const SdfPath& subtree);
 
 private:
+    HdNukeDelegateConfig _config;
+
     Scene _scene;
 
     std::unordered_map<GeoOp*, SdfPath> _opSubtrees;
@@ -110,6 +119,7 @@ private:
     SdfPathMap<HdNukeLightAdapterPtr> _lightAdapters;
 
     AdapterSharedState sharedState;
+    SdfPath _defaultMaterialId;
 };
 
 

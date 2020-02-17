@@ -37,8 +37,18 @@ PXR_NAMESPACE_OPEN_SCOPE
     (uv)                                    \
     (vel)
 
+#define HDNUKE_PATH_TOKENS                  \
+    (Geo)                                   \
+    (Lights)                                \
+    (Materials)                             \
+    (Nuke)                                  \
+    (Hydra)                                 \
+    ((defaultSurface, "__defaultSurface"))
+
 
 TF_DECLARE_PUBLIC_TOKENS(HdNukeTokens, HD_API, HDNUKE_TOKENS);
+
+TF_DECLARE_PUBLIC_TOKENS(HdNukePathTokens, HD_API, HDNUKE_PATH_TOKENS);
 
 
 PXR_NAMESPACE_CLOSE_SCOPE

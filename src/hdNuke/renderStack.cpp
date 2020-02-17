@@ -31,7 +31,7 @@ HydraRenderStack::HydraRenderStack(HdRendererPlugin* pluginPtr)
 
     nukeDelegate = new HdNukeSceneDelegate(renderIndex);
 
-    static SdfPath taskControllerId("/HydraNuke_TaskController");
+    static SdfPath taskControllerId("/HdNuke_TaskController");
     taskController = new HdxTaskController(renderIndex, taskControllerId);
 
     taskController->SetCollection(primCollection);
