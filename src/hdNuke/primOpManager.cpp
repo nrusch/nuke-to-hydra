@@ -34,10 +34,10 @@ HydraPrimOpManager::AddLight(HydraPrimOp* op)
                                                 _delegate, primId);
     }
     else {
-        if (op->IsDirty()) {
+        if (realOp->IsDirty()) {
             _delegate->GetRenderIndex().GetChangeTracker().MarkSprimDirty(
                 primId, realOp->GetDirtyBits());
-            op->MarkClean();
+            realOp->MarkClean();
         }
     }
 }

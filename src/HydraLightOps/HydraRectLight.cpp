@@ -1,0 +1,82 @@
+// Copyright 2019-present Nathan Rusch
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+#include <GL/glew.h>
+
+#include <pxr/pxr.h>
+
+#include <pxr/imaging/hd/tokens.h>
+
+#include <DDImage/Knobs.h>
+
+#include <hdNuke/lightOp.h>
+
+
+using namespace DD::Image;
+PXR_NAMESPACE_USING_DIRECTIVE
+
+
+static const char* const CLASS = "HydraRectLight";
+static const char* const HELP = "A quad light with an optional texture map.";
+
+
+class HydraRectLight : public HydraLightOp
+{
+public:
+    HydraRectLight(Node* node);
+    ~HydraRectLight() override { }
+
+    void makeLightKnobs(Knob_Callback f) override;
+
+    const TfToken& GetPrimTypeName() const override {
+        return HdPrimTypeTokens->rectLight;
+    }
+
+    const char* Class() const override { return CLASS; }
+    const char* node_help() const override { return HELP; }
+
+    static const Op::Description desc;
+
+private:
+    float _width = 1.0f;
+    float _height = 1.0f;
+    const char* _textureFile;
+};
+
+
+static Op* build(Node* node) { return new HydraRectLight(node); }
+const Op::Description HydraRectLight::desc(CLASS, 0, build);
+
+
+HydraRectLight::HydraRectLight(Node* node)
+    : HydraLightOp(node)
+    , _textureFile("")
+{
+}
+
+void
+HydraRectLight::makeLightKnobs(Knob_Callback f)
+{
+    HydraLightOp::makeLightKnobs(f);
+
+    Float_knob(f, &_width, "width");
+    SetRange(f, 0.05, 2);
+
+    Float_knob(f, &_height, "height");
+    SetRange(f, 0.05, 2);
+    ClearFlags(f, Knob::STARTLINE);
+
+    File_knob(f, &_textureFile, "texture_file", "texture file");
+    SetFlags(f,Knob::STARTLINE);
+}

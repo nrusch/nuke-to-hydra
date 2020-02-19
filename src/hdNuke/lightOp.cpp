@@ -12,8 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
+#include <pxr/imaging/hd/light.h>
+
 #include <DDImage/Knobs.h>
 
+#include "knobFactory.h"
 #include "lightOp.h"
 #include "primOpManager.h"
 #include "utils.h"
@@ -25,28 +28,48 @@ PXR_NAMESPACE_OPEN_SCOPE
 void
 HydraLightOp::knobs(Knob_Callback f)
 {
-    Float_knob(f, &_intensity, "intensity");
-    Float_knob(f, &_exposure, "exposure");
+    makeLightKnobs(f);
 
-    Color_knob(f, _color, "color");
-
-    Bool_knob(f, &_normalize, "normalize");
-
-    Float_knob(f, &_diffuse, "diffuse");
-    Float_knob(f, &_specular, "specular");
-
-    Bool_knob(f, &_castShadows, "cast_shadows", "cast shadows");
-    Color_knob(f, _shadowColor, "shadow_color", "shadow color");
+    Divider(f);
+    AxisOp::knobs(f);
 }
 
 int
 HydraLightOp::knob_changed(Knob* k)
 {
-    if (k->is("cast_shadows")) {
-        knob("shadow_color")->enable(_castShadows);
+    if (k->is("translate") or k->is("rotate") or k->is("scaling")
+            or k->is("uniform_scale") or k->is("skew") or k->is("pivot")
+            or k->is("xform_order") or k->is("rot_order") or k->is("useMatrix"))
+    {
+        MarkDirty(HdLight::DirtyTransform);
         return 1;
     }
-    return AxisOp::knob_changed(k);
+
+    if (k->is("shadow_enable")) {
+        knob("shadow_color")->enable(_castShadows);
+    }
+    MarkDirty(HdLight::DirtyParams);
+    return 1;
+}
+
+void
+HydraLightOp::makeLightKnobs(Knob_Callback f)
+{
+    Float_knob(f, &_intensity, "intensity");
+    Float_knob(f, &_exposure, "exposure");
+    SetRange(f, -3, 3);
+
+    Color_knob(f, _color, "color");
+
+    Bool_knob(f, &_normalize, "normalize");
+    SetFlags(f, Knob::STARTLINE);
+
+    Float_knob(f, &_diffuse, "diffuse");
+    Float_knob(f, &_specular, "specular");
+
+    Bool_knob(f, &_castShadows, "shadow_enable", "cast shadows");
+    SetFlags(f, Knob::STARTLINE);
+    Color_knob(f, _shadowColor, "shadow_color", "shadow color");
 }
 
 void
@@ -64,10 +87,18 @@ HydraLightOp::GetTransform() const
 VtValue
 HydraLightOp::GetLightParamValue(const TfToken& paramName)
 {
-    std::cerr << "GetLightParamValue : " << node_name()
-        << " : " << paramName.GetString() << std::endl;
+    std::string paramStr = paramName.GetString();
+    std::replace(paramStr.begin(), paramStr.end(), ':', '_');
+
+    if (Knob* k = knob(paramStr.c_str())) {
+        return KnobToVtValue(k);
+    }
     return VtValue();
 }
+
+
+const HdDirtyBits HydraLightOp::DefaultDirtyBits =
+    HdLight::DirtyTransform | HdLight::DirtyParams | HdLight::DirtyShadowParams;
 
 
 PXR_NAMESPACE_CLOSE_SCOPE

@@ -16,6 +16,7 @@
 
 #include <pxr/imaging/hd/renderIndex.h>
 
+#include "lightOp.h"
 #include "materialAdapter.h"
 #include "primOpManager.h"
 #include "sceneDelegate.h"
@@ -74,6 +75,9 @@ HdNukeSceneDelegate::GetTransform(const SdfPath& id)
 {
     if (id.HasPrefix(GetConfig().GeoRoot())) {
         return GetGeoAdapter(id)->GetTransform();
+    }
+    else if (id.HasPrefix(GetConfig().HydraLightRoot())) {
+        return GetHydraLightOp(id)->GetTransform();
     }
     else if (id.HasPrefix(GetConfig().NukeLightRoot())) {
         return GetLightAdapter(id)->GetTransform();
@@ -149,7 +153,10 @@ VtValue
 HdNukeSceneDelegate::GetLightParamValue(const SdfPath& id,
                                         const TfToken& paramName)
 {
-    if (id.HasPrefix(GetConfig().NukeLightRoot())) {
+    if (id.HasPrefix(GetConfig().HydraLightRoot())) {
+        return GetHydraLightOp(id)->GetLightParamValue(paramName);
+    }
+    else if (id.HasPrefix(GetConfig().NukeLightRoot())) {
         return GetLightAdapter(id)->GetLightParamValue(paramName);
     }
     return VtValue();
@@ -174,6 +181,13 @@ HdNukeSceneDelegate::GetLightAdapter(const SdfPath& id) const
 {
     auto it = _lightAdapters.find(id);
     return it == _lightAdapters.end() ? nullptr : it->second;
+}
+
+HydraLightOp*
+HdNukeSceneDelegate::GetHydraLightOp(const SdfPath& id) const
+{
+    auto it = _hydraLightOps.find(id);
+    return it == _hydraLightOps.end() ? nullptr : it->second;
 }
 
 TfToken

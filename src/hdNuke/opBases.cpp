@@ -14,11 +14,16 @@
 //
 #include "opBases.h"
 
+#include <pxr/imaging/hd/changeTracker.h>
+
 
 PXR_NAMESPACE_OPEN_SCOPE
 
 
 HydraPrimOp::~HydraPrimOp() { }
+
+
+const HdDirtyBits HydraPrimOp::DefaultDirtyBits = HdChangeTracker::AllDirty;
 
 
 PXR_NAMESPACE_CLOSE_SCOPE

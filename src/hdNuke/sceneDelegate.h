@@ -83,6 +83,7 @@ public:
     HdNukeGeoAdapterPtr GetGeoAdapter(const SdfPath& id) const;
     HdNukeInstancerAdapterPtr GetInstancerAdapter(const SdfPath& id) const;
     HdNukeLightAdapterPtr GetLightAdapter(const SdfPath& id) const;
+    HydraLightOp* GetHydraLightOp(const SdfPath& id) const;
 
     void SetDefaultDisplayColor(GfVec3f color);
 

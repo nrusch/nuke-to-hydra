@@ -46,7 +46,7 @@ public:
 
     VtValue GetLightParamValue(const TfToken& paramName) const;
 
-    static HdDirtyBits DefaultDirtyBits;
+    static const HdDirtyBits DefaultDirtyBits;
 
 private:
     const LightOp* _light;

@@ -23,6 +23,7 @@ add_compile_options(-DUSE_GLEW -fPIC -msse -Wall -Wno-deprecated)
 
 add_subdirectory(src/hdNuke)
 add_subdirectory(src/HydraRenderOp)
+add_subdirectory(src/HydraLightOps)
 
 install(FILES src/menu.py
     DESTINATION plugins)

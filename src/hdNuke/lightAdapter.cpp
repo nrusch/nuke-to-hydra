@@ -70,7 +70,7 @@ HdNukeLightAdapter::GetLightParamValue(const TfToken& paramName) const
 }
 
 
-HdDirtyBits HdNukeLightAdapter::DefaultDirtyBits =
+const HdDirtyBits HdNukeLightAdapter::DefaultDirtyBits =
     HdLight::DirtyTransform | HdLight::DirtyParams | HdLight::DirtyShadowParams;
 
 

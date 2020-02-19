@@ -35,13 +35,18 @@ public:
     void knobs(Knob_Callback f) override;
     int knob_changed(Knob* k) override;
 
+    virtual void makeLightKnobs(Knob_Callback f);
+
     void Populate(HydraPrimOpManager* manager) override;
 
     GfMatrix4d GetTransform() const;
 
     virtual VtValue GetLightParamValue(const TfToken& paramName);
 
+    static const HdDirtyBits DefaultDirtyBits;
+
 private:
+    // Knob storage
     float _intensity = 1.0f;
     float _exposure = 0.0f;
     float _color[3] = {1.0f, 1.0f, 1.0f};

@@ -17,7 +17,6 @@
 
 #include <pxr/pxr.h>
 
-#include <pxr/imaging/hd/changeTracker.h>
 #include <pxr/imaging/hd/types.h>
 
 #include <DDImage/Op.h>
@@ -41,14 +40,16 @@ public:
     virtual void Populate(HydraPrimOpManager* manager) = 0;
 
     inline HdDirtyBits GetDirtyBits() const { return _dirtyBits; }
-    inline bool IsDirty() const { return _dirtyBits != HdChangeTracker::Clean; }
-    inline void MarkDirty(HdDirtyBits bits = HdChangeTracker::AllDirty) {
+    inline bool IsDirty() const { return _dirtyBits != 0; }
+    inline void MarkDirty(HdDirtyBits bits) {
         _dirtyBits = bits;
     }
-    inline void MarkClean() { _dirtyBits = HdChangeTracker::Clean; }
+    inline void MarkClean() { _dirtyBits = 0; }
+
+    static const HdDirtyBits DefaultDirtyBits;
 
 private:
-    HdDirtyBits _dirtyBits = HdChangeTracker::Clean;
+    HdDirtyBits _dirtyBits = 0;
 };
 
 
