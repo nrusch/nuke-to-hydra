@@ -27,6 +27,11 @@ PXR_NAMESPACE_OPEN_SCOPE
 
 namespace
 {
+    inline bool IsInstancerId(const SdfPath& primId)
+    {
+        return primId.GetName() == HdInstancerTokens->instancer;
+    }
+
     inline SdfPath GetInstancerId(const SdfPath& primId)
     {
         return primId.AppendChild(HdInstancerTokens->instancer);
@@ -91,11 +96,11 @@ HdNukeSceneDelegate::Get(const SdfPath& id, const TfToken& key)
         return VtValue(GetTransform(id));
     }
 
-    if (id.HasPrefix(GetConfig().GeoRoot())) {
-        return GetGeoAdapter(id)->Get(key);
-    }
-    else if (id.GetName() == HdInstancerTokens->instancer) {
+    if (IsInstancerId(id)) {
         return GetInstancerAdapter(id)->Get(key);
+    }
+    else if (id.HasPrefix(GetConfig().GeoRoot())) {
+        return GetGeoAdapter(id)->Get(key);
     }
     TF_WARN("HdNukeSceneDelegate::Get : Unrecognized prim id: %s (key: %s)",
             id.GetText(), key.GetText());
