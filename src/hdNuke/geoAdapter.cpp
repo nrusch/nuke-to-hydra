@@ -192,11 +192,20 @@ HdNukeGeoAdapter::_RebuildPrimvars(const GeoInfo& geo)
             HdTokens->displayColor, HdInterpolationConstant,
             HdPrimvarRoleTokens->color);
 
+    // XXX: Hydra doesn't officially state that a `points` descriptor is
+    // required (even for Rprim types with implied points), and there's a good
+    // case to be made that it *shouldn't* be, but Storm currently seems to rely
+    // on it when generating GLSL code, so we take the conservative approach.
+    static HdPrimvarDescriptor pointsDescriptor(
+            HdTokens->points, HdInterpolationVertex,
+            HdPrimvarRoleTokens->point);
+
     // TODO: Try to reuse existing descriptors?
     _constantPrimvarDescriptors.clear();
     _constantPrimvarDescriptors.push_back(displayColorDescriptor);
     _uniformPrimvarDescriptors.clear();
     _vertexPrimvarDescriptors.clear();
+    _vertexPrimvarDescriptors.push_back(pointsDescriptor);
     _faceVaryingPrimvarDescriptors.clear();
 
     _primvarData.clear();
