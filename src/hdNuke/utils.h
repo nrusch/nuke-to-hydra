@@ -45,6 +45,8 @@ template <typename T>
 inline void ConvertHdBufferData(void* src, float* dest, size_t numPixels,
                                 size_t numComponents, bool packed);
 
+VtValue KnobToVtValue(const Knob* knob);
+
 
 //
 // Definitions

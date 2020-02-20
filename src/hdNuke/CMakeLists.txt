@@ -7,7 +7,8 @@ add_library(${HDNUKE_LIB_NAME} SHARED
     materialAdapter.cpp
     renderStack.cpp
     sceneDelegate.cpp
-    tokens.cpp)
+    tokens.cpp
+    utils.cpp)
 
 target_include_directories(${HDNUKE_LIB_NAME}
     PRIVATE

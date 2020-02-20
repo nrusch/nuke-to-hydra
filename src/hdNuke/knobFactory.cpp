@@ -14,9 +14,6 @@
 //
 #include "knobFactory.h"
 
-#include <pxr/base/gf/vec3f.h>
-#include <pxr/base/gf/vec4f.h>
-
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -75,39 +72,5 @@ HdNukeKnobFactory::FreeDynamicKnobStorage()
     _stringKnobStorage.Clear();
 }
 
-/* static */
-VtValue
-HdNukeKnobFactory::KnobToVtValue(Knob* knob)
-{
-    if (not knob) {
-        return VtValue();
-    }
-
-    switch(knob->ClassID()) {
-        case FLOAT_KNOB:
-            return VtValue(static_cast<float>(knob->get_value()));
-        case DOUBLE_KNOB:
-            return VtValue(knob->get_value());
-        case BOOL_KNOB:
-            return VtValue(static_cast<bool>(knob->get_value()));
-        case INT_KNOB:
-        case ENUMERATION_KNOB:
-            return VtValue(static_cast<int>(knob->get_value()));
-        case COLOR_KNOB:
-        case XYZ_KNOB:
-            return VtValue(GfVec3f(knob->get_value(0), knob->get_value(1),
-                                   knob->get_value(2)));
-        case ACOLOR_KNOB:
-            return VtValue(GfVec4f(knob->get_value(0), knob->get_value(1),
-                                   knob->get_value(2), knob->get_value(3)));
-        case STRING_KNOB:
-        case FILE_KNOB:
-            return VtValue(knob->get_text());
-        default:
-            TF_WARN("KnobToVtValue : No VtValue conversion implemented for "
-                    "knob type ID: %d", knob->ClassID());
-            return VtValue();
-    }
-}
 
 PXR_NAMESPACE_CLOSE_SCOPE

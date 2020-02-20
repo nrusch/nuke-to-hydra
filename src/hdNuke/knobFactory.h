@@ -67,8 +67,6 @@ public:
 
     void FreeDynamicKnobStorage();
 
-    static VtValue KnobToVtValue(Knob* knob);
-
 private:
     KnobDataStore<int> _intKnobStorage;
     KnobDataStore<float> _floatKnobStorage;
