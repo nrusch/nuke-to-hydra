@@ -552,12 +552,12 @@ HydraRender::copyBufferToImagePlane(HdRenderBuffer* buffer, ImagePlane& plane)
             }
             break;
         case HdFormatSNorm8:
-            convertRenderBufferData<int8_t>(data, dest, numPixels, numComponents,
-                                            plane.packed());
+            ConvertHdBufferData<int8_t>(data, dest, numPixels, numComponents,
+                                        plane.packed());
             break;
         case HdFormatFloat16:
-            convertRenderBufferData<GfHalf>(data, dest, numPixels, numComponents,
-                                            plane.packed());
+            ConvertHdBufferData<GfHalf>(data, dest, numPixels, numComponents,
+                                        plane.packed());
             break;
         case HdFormatFloat32:
             if (plane.packed() or numComponents == 1) {
@@ -576,8 +576,8 @@ HydraRender::copyBufferToImagePlane(HdRenderBuffer* buffer, ImagePlane& plane)
             }
             break;
         case HdFormatInt32:
-            convertRenderBufferData<int32_t>(data, dest, numPixels, numComponents,
-                                             plane.packed());
+            ConvertHdBufferData<int32_t>(data, dest, numPixels, numComponents,
+                                         plane.packed());
             break;
         default:
             TF_WARN("[HydraRender] Unhandled render buffer format: %d",

@@ -18,7 +18,11 @@
 #include <pxr/base/gf/matrix3f.h>
 #include <pxr/base/gf/matrix4f.h>
 #include <pxr/base/gf/matrix4d.h>
+#include <pxr/base/vt/value.h>
 
+#include <pxr/usd/sdf/path.h>
+
+#include <DDImage/Matrix3.h>
 #include <DDImage/Matrix4.h>
 #include <DDImage/Op.h>
 
@@ -27,6 +31,24 @@ using namespace DD::Image;
 
 PXR_NAMESPACE_OPEN_SCOPE
 
+
+inline GfMatrix3f DDToGfMatrix3f(const Matrix3& nukeMatrix);
+inline GfMatrix4f DDToGfMatrix4f(const Matrix4& nukeMatrix);
+inline GfMatrix4d DDToGfMatrix4d(const Matrix4& nukeMatrix);
+
+inline SdfPath GetPathFromOp(const Op* op);
+
+template <typename T>
+inline VtValue DDAttrToVtArrayValue(const Attribute& geoAttr);
+
+template <typename T>
+inline void ConvertHdBufferData(void* src, float* dest, size_t numPixels,
+                                size_t numComponents, bool packed);
+
+
+//
+// Definitions
+//
 
 inline GfMatrix3f DDToGfMatrix3f(const Matrix3& nukeMatrix)
 {
@@ -68,12 +90,12 @@ DDAttrToVtArrayValue(const Attribute& geoAttr)
 
 template <typename T>
 inline void
-convertRenderBufferData(void* rawData, float* dest, size_t numPixels,
-                        size_t numComponents, bool packed)
+ConvertHdBufferData(void* src, float* dest, size_t numPixels,
+                    size_t numComponents, bool packed)
 {
     const T* data;
     if (packed or numComponents == 1) {
-        data = static_cast<T*>(rawData);
+        data = static_cast<T*>(src);
         for (size_t i = 0; i < numPixels * numComponents; i++)
         {
             dest[i] = static_cast<float>(data[i]);
@@ -82,7 +104,7 @@ convertRenderBufferData(void* rawData, float* dest, size_t numPixels,
     else {
         for (size_t chan = 0; chan < numComponents; chan++)
         {
-            data = static_cast<T*>(rawData) + chan;
+            data = static_cast<T*>(src) + chan;
             for (size_t i = 0; i < numPixels; i++)
             {
                 *dest++ = static_cast<float>(data[i * numComponents]);
