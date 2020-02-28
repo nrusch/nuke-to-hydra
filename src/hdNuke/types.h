@@ -33,6 +33,9 @@ using GeoInfoVector = std::vector<const GeoInfo*>;
 template <typename T>
 using SdfPathMap = std::unordered_map<SdfPath, T, SdfPath::Hash>;
 
+template <typename T>
+using TfTokenMap = std::unordered_map<TfToken, T, TfToken::HashFunctor>;
+
 
 PXR_NAMESPACE_CLOSE_SCOPE
 

@@ -20,6 +20,7 @@
 #include <DDImage/AxisOp.h>
 
 #include "opBases.h"
+#include "vtValueKnobCache.h"
 
 
 using namespace DD::Image;
@@ -35,8 +36,6 @@ public:
     void knobs(Knob_Callback f) override;
     int knob_changed(Knob* k) override;
 
-    virtual void makeLightKnobs(Knob_Callback f);
-
     void Populate(HydraPrimOpManager* manager) override;
 
     GfMatrix4d GetTransform() const;
@@ -45,7 +44,18 @@ public:
 
     static const HdDirtyBits DefaultDirtyBits;
 
+protected:
+    virtual void MakeLightKnobs(Knob_Callback f);
+
+    inline bool RegisterLightParamKnob(Knob_Callback f, const TfToken& paramName);
+
 private:
+    VtValueKnobCache _paramKnobCache;
+    // XXX: Is there a better way of doing something with knob values one time
+    // after the first knob store (in order to pick up non-default values),
+    // without needing to explicitly reference their storage fields?
+    bool _knobCachePopulated = false;
+
     // Knob storage
     float _intensity = 1.0f;
     float _exposure = 0.0f;
@@ -56,6 +66,13 @@ private:
     bool _castShadows = true;
     float _shadowColor[3] = {0.0f, 0.0f, 0.0f};
 };
+
+
+bool
+HydraLightOp::RegisterLightParamKnob(Knob_Callback f, const TfToken& paramName)
+{
+    return _paramKnobCache.RegisterKnob(f, paramName);
+}
 
 
 PXR_NAMESPACE_CLOSE_SCOPE

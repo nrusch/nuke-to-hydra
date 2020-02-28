@@ -17,6 +17,7 @@
 #include <pxr/pxr.h>
 
 #include <pxr/imaging/hd/tokens.h>
+#include <pxr/usd/usdLux/tokens.h>
 
 #include <DDImage/Knobs.h>
 
@@ -46,8 +47,6 @@ public:
     HydraDomeLight(Node* node);
     ~HydraDomeLight() override { }
 
-    void makeLightKnobs(Knob_Callback f) override;
-
     const TfToken& GetPrimTypeName() const override {
         return HdPrimTypeTokens->domeLight;
     }
@@ -56,6 +55,9 @@ public:
     const char* node_help() const override { return HELP; }
 
     static const Op::Description desc;
+
+protected:
+    void MakeLightKnobs(Knob_Callback f) override;
 
 private:
     const char* _textureFile;
@@ -74,11 +76,14 @@ HydraDomeLight::HydraDomeLight(Node* node)
 }
 
 void
-HydraDomeLight::makeLightKnobs(Knob_Callback f)
+HydraDomeLight::MakeLightKnobs(Knob_Callback f)
 {
-    HydraLightOp::makeLightKnobs(f);
+    HydraLightOp::MakeLightKnobs(f);
 
     File_knob(f, &_textureFile, "texture_file", "texture file");
+    RegisterLightParamKnob(f, UsdLuxTokens->textureFile);
+
     Enumeration_knob(f, &_textureFormat, textureFormatNames, "texture_format",
                      "texture format");
+    RegisterLightParamKnob(f, UsdLuxTokens->textureFormat);
 }

@@ -11,7 +11,8 @@ add_library(${HDNUKE_LIB_NAME} SHARED
     renderStack.cpp
     sceneDelegate.cpp
     tokens.cpp
-    utils.cpp)
+    utils.cpp
+    vtValueKnobCache.cpp)
 
 target_include_directories(${HDNUKE_LIB_NAME}
     PRIVATE

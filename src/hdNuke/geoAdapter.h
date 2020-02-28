@@ -24,6 +24,7 @@
 #include <DDImage/GeoInfo.h>
 
 #include "adapter.h"
+#include "types.h"
 
 
 using namespace DD::Image;
@@ -81,7 +82,7 @@ private:
     HdPrimvarDescriptorVector _vertexPrimvarDescriptors;
     HdPrimvarDescriptorVector _faceVaryingPrimvarDescriptors;
 
-    std::unordered_map<TfToken, VtValue, TfToken::HashFunctor> _primvarData;
+    TfTokenMap<VtValue> _primvarData;
 };
 
 using HdNukeGeoAdapterPtr = std::shared_ptr<HdNukeGeoAdapter>;

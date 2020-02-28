@@ -14,6 +14,8 @@
 //
 #include <pxr/imaging/hd/light.h>
 
+#include <pxr/usd/usdLux/tokens.h>
+
 #include <DDImage/Knobs.h>
 
 #include "knobFactory.h"
@@ -28,10 +30,15 @@ PXR_NAMESPACE_OPEN_SCOPE
 void
 HydraLightOp::knobs(Knob_Callback f)
 {
-    makeLightKnobs(f);
+    MakeLightKnobs(f);
 
     Divider(f);
     AxisOp::knobs(f);
+
+    if (not (_knobCachePopulated or f.makeKnobs())) {
+        _paramKnobCache.PopulateValues();
+        _knobCachePopulated = true;
+    }
 }
 
 int
@@ -48,28 +55,14 @@ HydraLightOp::knob_changed(Knob* k)
     if (k->is("shadow_enable")) {
         knob("shadow_color")->enable(_castShadows);
     }
-    MarkDirty(HdLight::DirtyParams);
-    return 1;
-}
 
-void
-HydraLightOp::makeLightKnobs(Knob_Callback f)
-{
-    Float_knob(f, &_intensity, "intensity");
-    Float_knob(f, &_exposure, "exposure");
-    SetRange(f, -3, 3);
+    // This returns true if the knob is registered in the cache.
+    if (_paramKnobCache.OnKnobChanged(k)) {
+        MarkDirty(HdLight::DirtyParams);
+        return 1;
+    }
 
-    Color_knob(f, _color, "color");
-
-    Bool_knob(f, &_normalize, "normalize");
-    SetFlags(f, Knob::STARTLINE);
-
-    Float_knob(f, &_diffuse, "diffuse");
-    Float_knob(f, &_specular, "specular");
-
-    Bool_knob(f, &_castShadows, "shadow_enable", "cast shadows");
-    SetFlags(f, Knob::STARTLINE);
-    Color_knob(f, _shadowColor, "shadow_color", "shadow color");
+    return AxisOp::knob_changed(k);
 }
 
 void
@@ -87,13 +80,39 @@ HydraLightOp::GetTransform() const
 VtValue
 HydraLightOp::GetLightParamValue(const TfToken& paramName)
 {
-    std::string paramStr = paramName.GetString();
-    std::replace(paramStr.begin(), paramStr.end(), ':', '_');
+    return _paramKnobCache.GetValue(paramName);
+}
 
-    if (Knob* k = knob(paramStr.c_str())) {
-        return KnobToVtValue(k);
-    }
-    return VtValue();
+void
+HydraLightOp::MakeLightKnobs(Knob_Callback f)
+{
+    Float_knob(f, &_intensity, "intensity");
+    SetRange(f, 0, 5);
+    RegisterLightParamKnob(f, UsdLuxTokens->intensity);
+
+    Float_knob(f, &_exposure, "exposure");
+    SetRange(f, -3, 3);
+    RegisterLightParamKnob(f, UsdLuxTokens->exposure);
+
+    Color_knob(f, _color, "color");
+    RegisterLightParamKnob(f, UsdLuxTokens->color);
+
+    Bool_knob(f, &_normalize, "normalize");
+    SetFlags(f, Knob::STARTLINE);
+    RegisterLightParamKnob(f, UsdLuxTokens->normalize);
+
+    Float_knob(f, &_diffuse, "diffuse");
+    RegisterLightParamKnob(f, UsdLuxTokens->diffuse);
+
+    Float_knob(f, &_specular, "specular");
+    RegisterLightParamKnob(f, UsdLuxTokens->specular);
+
+    Bool_knob(f, &_castShadows, "cast_shadows", "cast shadows");
+    SetFlags(f, Knob::STARTLINE);
+    RegisterLightParamKnob(f, UsdLuxTokens->shadowEnable);
+
+    Color_knob(f, _shadowColor, "shadow_color", "shadow color");
+    RegisterLightParamKnob(f, UsdLuxTokens->shadowColor);
 }
 
 

@@ -17,6 +17,7 @@
 #include <pxr/pxr.h>
 
 #include <pxr/imaging/hd/tokens.h>
+#include <pxr/usd/usdLux/tokens.h>
 
 #include <DDImage/Knobs.h>
 
@@ -37,8 +38,6 @@ public:
     HydraRectLight(Node* node);
     ~HydraRectLight() override { }
 
-    void makeLightKnobs(Knob_Callback f) override;
-
     const TfToken& GetPrimTypeName() const override {
         return HdPrimTypeTokens->rectLight;
     }
@@ -47,6 +46,9 @@ public:
     const char* node_help() const override { return HELP; }
 
     static const Op::Description desc;
+
+protected:
+    void MakeLightKnobs(Knob_Callback f) override;
 
 private:
     float _width = 1.0f;
@@ -66,17 +68,20 @@ HydraRectLight::HydraRectLight(Node* node)
 }
 
 void
-HydraRectLight::makeLightKnobs(Knob_Callback f)
+HydraRectLight::MakeLightKnobs(Knob_Callback f)
 {
-    HydraLightOp::makeLightKnobs(f);
+    HydraLightOp::MakeLightKnobs(f);
 
     Float_knob(f, &_width, "width");
     SetRange(f, 0.05, 2);
+    RegisterLightParamKnob(f, UsdLuxTokens->width);
 
     Float_knob(f, &_height, "height");
     SetRange(f, 0.05, 2);
     ClearFlags(f, Knob::STARTLINE);
+    RegisterLightParamKnob(f, UsdLuxTokens->height);
 
     File_knob(f, &_textureFile, "texture_file", "texture file");
     SetFlags(f,Knob::STARTLINE);
+    RegisterLightParamKnob(f, UsdLuxTokens->textureFile);
 }

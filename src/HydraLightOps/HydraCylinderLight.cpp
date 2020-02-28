@@ -17,6 +17,7 @@
 #include <pxr/pxr.h>
 
 #include <pxr/imaging/hd/tokens.h>
+#include <pxr/usd/usdLux/tokens.h>
 
 #include <DDImage/Knobs.h>
 
@@ -37,8 +38,6 @@ public:
     HydraCylinderLight(Node* node);
     ~HydraCylinderLight() override { }
 
-    void makeLightKnobs(Knob_Callback f) override;
-
     const TfToken& GetPrimTypeName() const override {
         return HdPrimTypeTokens->cylinderLight;
     }
@@ -47,6 +46,9 @@ public:
     const char* node_help() const override { return HELP; }
 
     static const Op::Description desc;
+
+protected:
+    void MakeLightKnobs(Knob_Callback f) override;
 
 private:
     float _length = 1.0f;
@@ -65,16 +67,19 @@ HydraCylinderLight::HydraCylinderLight(Node* node)
 }
 
 void
-HydraCylinderLight::makeLightKnobs(Knob_Callback f)
+HydraCylinderLight::MakeLightKnobs(Knob_Callback f)
 {
-    HydraLightOp::makeLightKnobs(f);
+    HydraLightOp::MakeLightKnobs(f);
 
     Float_knob(f, &_length, "length");
     SetRange(f, 0.1, 5);
+    RegisterLightParamKnob(f, UsdLuxTokens->length);
 
     Float_knob(f, &_radius, "radius");
     SetRange(f, 0.05, 2);
+    RegisterLightParamKnob(f, UsdLuxTokens->radius);
 
-    Bool_knob(f, &_treatAsLine, "treatAsLine", "treat as line");
+    Bool_knob(f, &_treatAsLine, "treat_as_line", "treat as line");
     SetFlags(f,Knob::STARTLINE);
+    RegisterLightParamKnob(f, UsdLuxTokens->treatAsLine);
 }

@@ -17,6 +17,7 @@
 #include <pxr/pxr.h>
 
 #include <pxr/imaging/hd/tokens.h>
+#include <pxr/usd/usdLux/tokens.h>
 
 #include <DDImage/Knobs.h>
 
@@ -37,8 +38,6 @@ public:
     HydraDiskLight(Node* node);
     ~HydraDiskLight() override { }
 
-    void makeLightKnobs(Knob_Callback f) override;
-
     const TfToken& GetPrimTypeName() const override {
         return HdPrimTypeTokens->diskLight;
     }
@@ -47,6 +46,9 @@ public:
     const char* node_help() const override { return HELP; }
 
     static const Op::Description desc;
+
+protected:
+    void MakeLightKnobs(Knob_Callback f) override;
 
 private:
     float _radius = 0.5f;
@@ -63,10 +65,11 @@ HydraDiskLight::HydraDiskLight(Node* node)
 }
 
 void
-HydraDiskLight::makeLightKnobs(Knob_Callback f)
+HydraDiskLight::MakeLightKnobs(Knob_Callback f)
 {
-    HydraLightOp::makeLightKnobs(f);
+    HydraLightOp::MakeLightKnobs(f);
 
     Float_knob(f, &_radius, "radius");
     SetRange(f, 0.05, 2);
+    RegisterLightParamKnob(f, UsdLuxTokens->radius);
 }
