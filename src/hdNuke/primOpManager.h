@@ -29,6 +29,14 @@ class HydraPrimOpManager
 public:
     void AddLight(HydraPrimOp* op);
 
+private:
+    friend class HdNukeSceneDelegate;
+
+    HydraPrimOpManager(HdNukeSceneDelegate* delegate)
+        : _delegate(delegate) { }
+
+    void UpdateIndex(HydraPrimOp* op);
+
     template<class OP_TYPE>
     SdfPath MakeGeometryId(OP_TYPE* op) const;
 
@@ -38,18 +46,16 @@ public:
     template<class OP_TYPE>
     SdfPath MakeMaterialId(OP_TYPE* op) const;
 
-private:
-    friend class HdNukeSceneDelegate;
-
-    HydraPrimOpManager(HdNukeSceneDelegate* delegate)
-        : _delegate(delegate) { }
-
     template <class OP_TYPE>
-    bool _AddPrimOpToMap(OP_TYPE* op, const SdfPath& primId,
-                         SdfPathMap<OP_TYPE*>& primOpMap);
+    bool _InsertPrimOp(OP_TYPE* op, const SdfPath& primId,
+                       const SdfPathMap<OP_TYPE*>& currentOpMap,
+                       SdfPathMap<OP_TYPE*>& newOpMap);
 
     HdNukeSceneDelegate* _delegate;
+
+    SdfPathMap<HydraLightOp*> _lightOps;
 };
+
 
 template<class OP_TYPE>
 SdfPath
@@ -73,26 +79,36 @@ HydraPrimOpManager::MakeMaterialId(OP_TYPE* op) const
 }
 
 template <class OP_TYPE>
-bool HydraPrimOpManager::_AddPrimOpToMap(OP_TYPE* op, const SdfPath& primId,
-                                         SdfPathMap<OP_TYPE*>& primOpMap)
+bool HydraPrimOpManager::_InsertPrimOp(OP_TYPE* op, const SdfPath& primId,
+                                       const SdfPathMap<OP_TYPE*>& currentOpMap,
+                                       SdfPathMap<OP_TYPE*>& newOpMap)
 {
     TF_VERIFY(op);
 
     op = static_cast<OP_TYPE*>(op->firstOp());
 
-    typename SdfPathMap<OP_TYPE*>::iterator it;
-    bool inserted;
-    std::tie(it, inserted) = primOpMap.insert(std::make_pair(primId, op));
-    if (not inserted) {
-        if (op != it->second) {
-            // XXX: Should we just implicitly replace here?
-            TF_CODING_ERROR("HydraPrimOpManager::_AddPrimOpToMap : Existing "
-                            "prim ID %s maps to a different existing op. This "
-                            "may do unexpected things...",
-                            primId.GetText());
+    auto insertResult = newOpMap.insert(std::make_pair(primId, op));
+    if (ARCH_UNLIKELY(not insertResult.second)) {
+        TF_CODING_ERROR("HydraPrimOpManager::_InsertPrimOp : More than one op "
+                        "maps to prim ID %s - ignoring duplicates",
+                        primId.GetText());
+        return false;
+    }
+
+    const auto it = currentOpMap.find(primId);
+    const bool isNewOp = it == currentOpMap.end();
+    if (not isNewOp) {
+        const TfToken& existingType = it->second->GetPrimTypeName();
+        const TfToken& newType = op->GetPrimTypeName();
+        if (newType != existingType) {
+            TF_CODING_ERROR("HydraPrimOpManager::_InsertPrimOp : Prim types "
+                            "of new and existing ops for prim ID %s do not "
+                            "match: %s != %s",
+                            primId.GetText(), newType.GetText(),
+                            existingType.GetText());
         }
     }
-    return inserted;
+    return isNewOp;
 }
 
 

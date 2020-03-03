@@ -29,7 +29,7 @@ HydraPrimOpManager::AddLight(HydraPrimOp* op)
 
     SdfPath primId = MakeLightId(realOp);
 
-    if (_AddPrimOpToMap(realOp, primId, _delegate->_hydraLightOps)) {
+    if (_InsertPrimOp(realOp, primId, _delegate->_hydraLightOps, _lightOps)) {
         _delegate->GetRenderIndex().InsertSprim(realOp->GetPrimTypeName(),
                                                 _delegate, primId);
     }
@@ -40,6 +40,25 @@ HydraPrimOpManager::AddLight(HydraPrimOp* op)
             realOp->MarkClean();
         }
     }
+}
+
+void
+HydraPrimOpManager::UpdateIndex(HydraPrimOp* op)
+{
+    op->Populate(this);
+
+    HdRenderIndex& renderIndex = _delegate->GetRenderIndex();
+
+    const auto curMapEnd = _delegate->_hydraLightOps.end();
+    const auto newMapEnd = _lightOps.end();
+    for (auto it = _delegate->_hydraLightOps.begin(); it != curMapEnd; it++)
+    {
+        if (_lightOps.find(it->first) == newMapEnd) {
+            renderIndex.RemoveSprim(it->second->GetPrimTypeName(), it->first);
+        }
+    }
+
+    _lightOps.swap(_delegate->_hydraLightOps);
 }
 
 

@@ -564,7 +564,7 @@ void
 HdNukeSceneDelegate::SyncHydraPrimOp(HydraPrimOp* primOp)
 {
     HydraPrimOpManager manager(this);
-    primOp->Populate(&manager);
+    manager.UpdateIndex(primOp);
 }
 
 void HdNukeSceneDelegate::ClearAll()

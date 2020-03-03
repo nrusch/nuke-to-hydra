@@ -128,6 +128,7 @@ private:
     SdfPathMap<HdNukeLightAdapterPtr> _lightAdapters;
 
     SdfPathMap<HydraLightOp*> _hydraLightOps;
+
     AdapterSharedState sharedState;
     SdfPath _defaultMaterialId;
 };
