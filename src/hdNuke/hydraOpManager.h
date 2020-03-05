@@ -24,7 +24,7 @@
 PXR_NAMESPACE_OPEN_SCOPE
 
 
-class HydraPrimOpManager
+class HydraOpManager
 {
 public:
     void AddLight(HydraPrimOp* op);
@@ -32,10 +32,9 @@ public:
 private:
     friend class HdNukeSceneDelegate;
 
-    HydraPrimOpManager(HdNukeSceneDelegate* delegate)
-        : _delegate(delegate) { }
+    HydraOpManager(HdNukeSceneDelegate* delegate) : _delegate(delegate) { }
 
-    void UpdateIndex(HydraPrimOp* op);
+    void UpdateIndex(HydraOp* op);
 
     template<class OP_TYPE>
     SdfPath MakeGeometryId(OP_TYPE* op) const;
@@ -59,29 +58,29 @@ private:
 
 template<class OP_TYPE>
 SdfPath
-HydraPrimOpManager::MakeGeometryId(OP_TYPE* op) const
+HydraOpManager::MakeGeometryId(OP_TYPE* op) const
 {
     return _delegate->GetConfig().GeoRoot().AppendPath(GetPathFromOp(op));
 }
 
 template<class OP_TYPE>
 SdfPath
-HydraPrimOpManager::MakeLightId(OP_TYPE* op) const
+HydraOpManager::MakeLightId(OP_TYPE* op) const
 {
     return _delegate->GetConfig().HydraLightRoot().AppendPath(GetPathFromOp(op));
 }
 
 template<class OP_TYPE>
 SdfPath
-HydraPrimOpManager::MakeMaterialId(OP_TYPE* op) const
+HydraOpManager::MakeMaterialId(OP_TYPE* op) const
 {
     return _delegate->GetConfig().MaterialRoot().AppendPath(GetPathFromOp(op));
 }
 
 template <class OP_TYPE>
-bool HydraPrimOpManager::_InsertPrimOp(OP_TYPE* op, const SdfPath& primId,
-                                       const SdfPathMap<OP_TYPE*>& currentOpMap,
-                                       SdfPathMap<OP_TYPE*>& newOpMap)
+bool HydraOpManager::_InsertPrimOp(OP_TYPE* op, const SdfPath& primId,
+                                   const SdfPathMap<OP_TYPE*>& currentOpMap,
+                                   SdfPathMap<OP_TYPE*>& newOpMap)
 {
     TF_VERIFY(op);
 
@@ -89,8 +88,8 @@ bool HydraPrimOpManager::_InsertPrimOp(OP_TYPE* op, const SdfPath& primId,
 
     auto insertResult = newOpMap.insert(std::make_pair(primId, op));
     if (ARCH_UNLIKELY(not insertResult.second)) {
-        TF_CODING_ERROR("HydraPrimOpManager::_InsertPrimOp : More than one op "
-                        "maps to prim ID %s - ignoring duplicates",
+        TF_CODING_ERROR("HydraOpManager::_InsertPrimOp : More than one op maps "
+                        "to prim ID %s - ignoring duplicates",
                         primId.GetText());
         return false;
     }
@@ -100,10 +99,11 @@ bool HydraPrimOpManager::_InsertPrimOp(OP_TYPE* op, const SdfPath& primId,
     if (not isNewOp) {
         const TfToken& existingType = it->second->GetPrimTypeName();
         const TfToken& newType = op->GetPrimTypeName();
+        // TODO: Do something in this scenario...
         if (newType != existingType) {
-            TF_CODING_ERROR("HydraPrimOpManager::_InsertPrimOp : Prim types "
-                            "of new and existing ops for prim ID %s do not "
-                            "match: %s != %s",
+            TF_CODING_ERROR("HydraOpManager::_InsertPrimOp : Prim types of new "
+                            "new and existing ops for prim ID %s do not match: "
+                            "%s != %s",
                             primId.GetText(), newType.GetText(),
                             existingType.GetText());
         }

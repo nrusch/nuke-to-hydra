@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 #include "lightOp.h"
-#include "primOpManager.h"
+#include "hydraOpManager.h"
 #include "utils.h"
 
 
@@ -21,7 +21,7 @@ PXR_NAMESPACE_OPEN_SCOPE
 
 
 void
-HydraPrimOpManager::AddLight(HydraPrimOp* op)
+HydraOpManager::AddLight(HydraPrimOp* op)
 {
     // TODO: Should we use a dynamic_cast as a guard? Or just trust that the
     // caller knows what they're doing?
@@ -43,17 +43,20 @@ HydraPrimOpManager::AddLight(HydraPrimOp* op)
 }
 
 void
-HydraPrimOpManager::UpdateIndex(HydraPrimOp* op)
+HydraOpManager::UpdateIndex(HydraOp* op)
 {
     op->Populate(this);
 
     HdRenderIndex& renderIndex = _delegate->GetRenderIndex();
 
+    // TODO: Template this?
+    // TODO: Better optimization for single-op case
     const auto curMapEnd = _delegate->_hydraLightOps.end();
     const auto newMapEnd = _lightOps.end();
     for (auto it = _delegate->_hydraLightOps.begin(); it != curMapEnd; it++)
     {
         if (_lightOps.find(it->first) == newMapEnd) {
+// TODO: Debug that this is happening (TF_DEBUG for change tracker)
             renderIndex.RemoveSprim(it->second->GetPrimTypeName(), it->first);
         }
     }

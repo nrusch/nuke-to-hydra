@@ -221,7 +221,7 @@ HydraRender::test_input(int index, Op* op) const
         case 1:
             return dynamic_cast<CameraOp*>(op) != nullptr;
        case 2:
-           return dynamic_cast<HydraPrimOp*>(op) != nullptr;
+           return dynamic_cast<HydraOp*>(op) != nullptr;
     }
 
     return false;
@@ -405,8 +405,8 @@ HydraRender::renderStripe(ImagePlane& plane)
             sceneDelegate()->ClearNukePrims();
         }
 
-        if (HydraPrimOp* hydraOp = dynamic_cast<HydraPrimOp*>(Op::input(2))) {
-            sceneDelegate()->SyncHydraPrimOp(hydraOp);
+        if (HydraOp* hydraOp = dynamic_cast<HydraOp*>(Op::input(2))) {
+            sceneDelegate()->SyncHydraOp(hydraOp);
         }
         else {
             sceneDelegate()->ClearHydraPrims();

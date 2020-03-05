@@ -36,7 +36,7 @@ public:
     void knobs(Knob_Callback f) override;
     int knob_changed(Knob* k) override;
 
-    void Populate(HydraPrimOpManager* manager) override;
+    void Populate(HydraOpManager* manager) override;
 
     GfMatrix4d GetTransform() const;
 

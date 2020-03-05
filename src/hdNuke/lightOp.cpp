@@ -18,9 +18,9 @@
 
 #include <DDImage/Knobs.h>
 
+#include "hydraOpManager.h"
 #include "knobFactory.h"
 #include "lightOp.h"
-#include "primOpManager.h"
 #include "utils.h"
 
 
@@ -66,7 +66,7 @@ HydraLightOp::knob_changed(Knob* k)
 }
 
 void
-HydraLightOp::Populate(HydraPrimOpManager* manager)
+HydraLightOp::Populate(HydraOpManager* manager)
 {
     manager->AddLight(this);
 }

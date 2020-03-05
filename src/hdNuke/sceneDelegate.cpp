@@ -16,9 +16,9 @@
 
 #include <pxr/imaging/hd/renderIndex.h>
 
+#include "hydraOpManager.h"
 #include "lightOp.h"
 #include "materialAdapter.h"
-#include "primOpManager.h"
 #include "sceneDelegate.h"
 #include "tokens.h"
 #include "utils.h"
@@ -561,10 +561,10 @@ HdNukeSceneDelegate::SyncFromGeoOp(GeoOp* geoOp)
 }
 
 void
-HdNukeSceneDelegate::SyncHydraPrimOp(HydraPrimOp* primOp)
+HdNukeSceneDelegate::SyncHydraOp(HydraOp* hydraOp)
 {
-    HydraPrimOpManager manager(this);
-    manager.UpdateIndex(primOp);
+    HydraOpManager manager(this);
+    manager.UpdateIndex(hydraOp);
 }
 
 void HdNukeSceneDelegate::ClearAll()

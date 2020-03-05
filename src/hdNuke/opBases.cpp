@@ -20,6 +20,8 @@
 PXR_NAMESPACE_OPEN_SCOPE
 
 
+HydraOp::~HydraOp() { }
+
 HydraPrimOp::~HydraPrimOp() { }
 
 

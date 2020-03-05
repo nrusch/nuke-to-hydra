@@ -27,17 +27,26 @@ using namespace DD::Image;
 PXR_NAMESPACE_OPEN_SCOPE
 
 
-class HydraPrimOpManager;
+class HydraOpManager;
 
-class HydraPrimOp
+
+class HydraOp
 {
 public:
-    HydraPrimOp() { }
+    HydraOp() { }
+    virtual ~HydraOp();
+
+    virtual void Populate(HydraOpManager* manager) = 0;
+};
+
+
+class HydraPrimOp : public HydraOp
+{
+public:
+    HydraPrimOp() : HydraOp() { }
     virtual ~HydraPrimOp();
 
     virtual const TfToken& GetPrimTypeName() const = 0;
-
-    virtual void Populate(HydraPrimOpManager* manager) = 0;
 
     inline HdDirtyBits GetDirtyBits() const { return _dirtyBits; }
     inline bool IsDirty() const { return _dirtyBits != 0; }

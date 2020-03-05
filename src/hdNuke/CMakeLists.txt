@@ -1,13 +1,13 @@
 add_library(${HDNUKE_LIB_NAME} SHARED
     delegateConfig.cpp
     geoAdapter.cpp
+    hydraOpManager.cpp
     instancerAdapter.cpp
     knobFactory.cpp
     lightAdapter.cpp
     lightOp.cpp
     materialAdapter.cpp
     opBases.cpp
-    primOpManager.cpp
     renderStack.cpp
     sceneDelegate.cpp
     tokens.cpp
@@ -21,7 +21,7 @@ target_include_directories(${HDNUKE_LIB_NAME}
 
 target_link_libraries(${HDNUKE_LIB_NAME}
     ${NUKE_DDIMAGE_LIBRARY}
-    arch hd usdGeom usdImaging)
+    arch hd hdx usdGeom usdImaging)
 
 set_target_properties(${HDNUKE_LIB_NAME}
     PROPERTIES

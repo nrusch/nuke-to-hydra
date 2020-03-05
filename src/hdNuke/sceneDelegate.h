@@ -37,9 +37,9 @@ PXR_NAMESPACE_OPEN_SCOPE
 
 class GfVec3f;
 
+class HydraOp;
 class HydraLightOp;
-class HydraPrimOp;
-class HydraPrimOpManager;
+class HydraOpManager;
 
 class HdNukeSceneDelegate : public HdSceneDelegate
 {
@@ -88,7 +88,7 @@ public:
     void SetDefaultDisplayColor(GfVec3f color);
 
     void SyncFromGeoOp(GeoOp* geoOp);
-    void SyncHydraPrimOp(HydraPrimOp* primOp);
+    void SyncHydraOp(HydraOp* hydraOp);
 
     void ClearNukePrims();
     void ClearHydraPrims();
@@ -114,7 +114,7 @@ protected:
     void _RemoveSubtree(const SdfPath& subtree);
 
 private:
-    friend class HydraPrimOpManager;
+    friend class HydraOpManager;
 
     HdNukeDelegateConfig _config;
 
