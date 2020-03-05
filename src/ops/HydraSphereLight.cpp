@@ -38,10 +38,6 @@ public:
     HydraSphereLight(Node* node);
     ~HydraSphereLight() override { }
 
-    const TfToken& GetPrimTypeName() const override {
-        return HdPrimTypeTokens->sphereLight;
-    }
-
     const char* Class() const override { return CLASS; }
     const char* node_help() const override { return HELP; }
 
@@ -61,7 +57,7 @@ const Op::Description HydraSphereLight::desc(CLASS, 0, build);
 
 
 HydraSphereLight::HydraSphereLight(Node* node)
-    : HydraLightOp(node)
+    : HydraLightOp(node, HdPrimTypeTokens->sphereLight)
 {
 }
 

@@ -99,7 +99,6 @@ bool HydraOpManager::_InsertPrimOp(OP_TYPE* op, const SdfPath& primId,
     if (not isNewOp) {
         const TfToken& existingType = it->second->GetPrimTypeName();
         const TfToken& newType = op->GetPrimTypeName();
-        // TODO: Do something in this scenario...
         if (newType != existingType) {
             TF_CODING_ERROR("HydraOpManager::_InsertPrimOp : Prim types of new "
                             "new and existing ops for prim ID %s do not match: "

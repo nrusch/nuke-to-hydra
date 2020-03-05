@@ -28,19 +28,15 @@ using namespace DD::Image;
 PXR_NAMESPACE_USING_DIRECTIVE
 
 
-static const char* const CLASS = "HydraCylinderLight";
+static const char* const CLASS = "HydraRectLight";
 static const char* const HELP = "A quad light with an optional texture map.";
 
 
-class HydraCylinderLight : public HydraLightOp
+class HydraRectLight : public HydraLightOp
 {
 public:
-    HydraCylinderLight(Node* node);
-    ~HydraCylinderLight() override { }
-
-    const TfToken& GetPrimTypeName() const override {
-        return HdPrimTypeTokens->cylinderLight;
-    }
+    HydraRectLight(Node* node);
+    ~HydraRectLight() override { }
 
     const char* Class() const override { return CLASS; }
     const char* node_help() const override { return HELP; }
@@ -51,35 +47,37 @@ protected:
     void MakeLightKnobs(Knob_Callback f) override;
 
 private:
-    float _length = 1.0f;
-    float _radius = 0.5f;
-    bool _treatAsLine = false;
+    float _width = 1.0f;
+    float _height = 1.0f;
+    const char* _textureFile;
 };
 
 
-static Op* build(Node* node) { return new HydraCylinderLight(node); }
-const Op::Description HydraCylinderLight::desc(CLASS, 0, build);
+static Op* build(Node* node) { return new HydraRectLight(node); }
+const Op::Description HydraRectLight::desc(CLASS, 0, build);
 
 
-HydraCylinderLight::HydraCylinderLight(Node* node)
-    : HydraLightOp(node)
+HydraRectLight::HydraRectLight(Node* node)
+    : HydraLightOp(node, HdPrimTypeTokens->rectLight)
+    , _textureFile("")
 {
 }
 
 void
-HydraCylinderLight::MakeLightKnobs(Knob_Callback f)
+HydraRectLight::MakeLightKnobs(Knob_Callback f)
 {
     HydraLightOp::MakeLightKnobs(f);
 
-    Float_knob(f, &_length, "length");
-    SetRange(f, 0.1, 5);
-    RegisterLightParamKnob(f, UsdLuxTokens->length);
-
-    Float_knob(f, &_radius, "radius");
+    Float_knob(f, &_width, "width");
     SetRange(f, 0.05, 2);
-    RegisterLightParamKnob(f, UsdLuxTokens->radius);
+    RegisterLightParamKnob(f, UsdLuxTokens->width);
 
-    Bool_knob(f, &_treatAsLine, "treat_as_line", "treat as line");
+    Float_knob(f, &_height, "height");
+    SetRange(f, 0.05, 2);
+    ClearFlags(f, Knob::STARTLINE);
+    RegisterLightParamKnob(f, UsdLuxTokens->height);
+
+    File_knob(f, &_textureFile, "texture_file", "texture file");
     SetFlags(f,Knob::STARTLINE);
-    RegisterLightParamKnob(f, UsdLuxTokens->treatAsLine);
+    RegisterLightParamKnob(f, UsdLuxTokens->textureFile);
 }

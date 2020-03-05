@@ -23,8 +23,6 @@ PXR_NAMESPACE_OPEN_SCOPE
 void
 HydraOpManager::AddLight(HydraPrimOp* op)
 {
-    // TODO: Should we use a dynamic_cast as a guard? Or just trust that the
-    // caller knows what they're doing?
     HydraLightOp* realOp = static_cast<HydraLightOp*>(op);
 
     SdfPath primId = MakeLightId(realOp);
@@ -49,14 +47,11 @@ HydraOpManager::UpdateIndex(HydraOp* op)
 
     HdRenderIndex& renderIndex = _delegate->GetRenderIndex();
 
-    // TODO: Template this?
-    // TODO: Better optimization for single-op case
     const auto curMapEnd = _delegate->_hydraLightOps.end();
     const auto newMapEnd = _lightOps.end();
     for (auto it = _delegate->_hydraLightOps.begin(); it != curMapEnd; it++)
     {
         if (_lightOps.find(it->first) == newMapEnd) {
-// TODO: Debug that this is happening (TF_DEBUG for change tracker)
             renderIndex.RemoveSprim(it->second->GetPrimTypeName(), it->first);
         }
     }

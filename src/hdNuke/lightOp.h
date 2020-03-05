@@ -31,10 +31,13 @@ PXR_NAMESPACE_OPEN_SCOPE
 class HydraLightOp : public AxisOp, public HydraPrimOp
 {
 public:
-    HydraLightOp(Node* node) : AxisOp(node), HydraPrimOp() { }
+    HydraLightOp(Node* node,  const TfToken& primType)
+        : AxisOp(node), HydraPrimOp(), _primType(primType) { }
 
     void knobs(Knob_Callback f) override;
     int knob_changed(Knob* k) override;
+
+    const TfToken& GetPrimTypeName() const override { return _primType; }
 
     void Populate(HydraOpManager* manager) override;
 
@@ -50,6 +53,8 @@ protected:
     inline bool RegisterLightParamKnob(Knob_Callback f, const TfToken& paramName);
 
 private:
+    const TfToken& _primType;
+
     VtValueKnobCache _paramKnobCache;
     // XXX: Is there a better way of doing something with knob values one time
     // after the first knob store (in order to pick up non-default values),

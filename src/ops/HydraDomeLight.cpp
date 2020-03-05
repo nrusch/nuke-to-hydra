@@ -28,19 +28,24 @@ using namespace DD::Image;
 PXR_NAMESPACE_USING_DIRECTIVE
 
 
-static const char* const CLASS = "HydraDiskLight";
-static const char* const HELP = "A circular disk light.";
+static const char* const CLASS = "HydraDomeLight";
+static const char* const HELP = "A dome light with an optional texture map.";
+
+static const char* const textureFormatNames[] = {
+    "automatic",
+    "latlong",
+    "mirroredBall",
+    "angular",
+    "cubeMapVerticalCross",
+    0
+};
 
 
-class HydraDiskLight : public HydraLightOp
+class HydraDomeLight : public HydraLightOp
 {
 public:
-    HydraDiskLight(Node* node);
-    ~HydraDiskLight() override { }
-
-    const TfToken& GetPrimTypeName() const override {
-        return HdPrimTypeTokens->diskLight;
-    }
+    HydraDomeLight(Node* node);
+    ~HydraDomeLight() override { }
 
     const char* Class() const override { return CLASS; }
     const char* node_help() const override { return HELP; }
@@ -51,25 +56,30 @@ protected:
     void MakeLightKnobs(Knob_Callback f) override;
 
 private:
-    float _radius = 0.5f;
+    const char* _textureFile;
+    int _textureFormat = 0;
 };
 
 
-static Op* build(Node* node) { return new HydraDiskLight(node); }
-const Op::Description HydraDiskLight::desc(CLASS, 0, build);
+static Op* build(Node* node) { return new HydraDomeLight(node); }
+const Op::Description HydraDomeLight::desc(CLASS, 0, build);
 
 
-HydraDiskLight::HydraDiskLight(Node* node)
-    : HydraLightOp(node)
+HydraDomeLight::HydraDomeLight(Node* node)
+    : HydraLightOp(node, HdPrimTypeTokens->domeLight)
+    , _textureFile("")
 {
 }
 
 void
-HydraDiskLight::MakeLightKnobs(Knob_Callback f)
+HydraDomeLight::MakeLightKnobs(Knob_Callback f)
 {
     HydraLightOp::MakeLightKnobs(f);
 
-    Float_knob(f, &_radius, "radius");
-    SetRange(f, 0.05, 2);
-    RegisterLightParamKnob(f, UsdLuxTokens->radius);
+    File_knob(f, &_textureFile, "texture_file", "texture file");
+    RegisterLightParamKnob(f, UsdLuxTokens->textureFile);
+
+    Enumeration_knob(f, &_textureFormat, textureFormatNames, "texture_format",
+                     "texture format");
+    RegisterLightParamKnob(f, UsdLuxTokens->textureFormat);
 }
