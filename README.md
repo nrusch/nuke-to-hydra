@@ -19,9 +19,8 @@ updates), and I reserve the right to not accept them.
 - Particles
 - Mesh instancing via particle systems (mostly)
 - Lights
-    - Light support currently piggybacks on Nuke's native light ops, but I plan
-    to implement dedicated Hydra light ops in the future (see
-    https://github.com/nrusch/nuke-to-hydra/issues/3).
+    - A set of custom Hydra light ops is included, but Nuke's native lights also
+    generally work (though some knobs map awkwardly to the light schema params).
 - Render delegate settings (mostly)
 
 ## Unsupported/TODO
