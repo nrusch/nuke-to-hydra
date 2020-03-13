@@ -93,7 +93,10 @@ HdNukeSceneDelegate::GetTransform(const SdfPath& id)
 bool
 HdNukeSceneDelegate::GetVisible(const SdfPath& id)
 {
-    return GetGeoAdapter(id)->GetVisible();
+    if (HdNukeGeoAdapterPtr geoAdapter = GetGeoAdapter(id)) {
+        return geoAdapter->GetVisible();
+    }
+    return true;
 }
 
 VtValue
