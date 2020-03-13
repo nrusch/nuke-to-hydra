@@ -30,8 +30,6 @@
 #include "types.h"
 
 
-using namespace DD::Image;
-
 PXR_NAMESPACE_OPEN_SCOPE
 
 
@@ -74,8 +72,8 @@ public:
 
     inline const HdNukeDelegateConfig& GetConfig() const { return _config; }
 
-    TfToken GetRprimType(const GeoInfo& geoInfo) const;
-    SdfPath GetRprimSubPath(const GeoInfo& geoInfo,
+    TfToken GetRprimType(const DD::Image::GeoInfo& geoInfo) const;
+    SdfPath GetRprimSubPath(const DD::Image::GeoInfo& geoInfo,
                             const TfToken& primType) const;
 
     inline const SdfPath& DefaultMaterialId() const { return _defaultMaterialId; }
@@ -87,23 +85,24 @@ public:
 
     void SetDefaultDisplayColor(GfVec3f color);
 
-    void SyncFromGeoOp(GeoOp* geoOp);
+    void SyncFromGeoOp(DD::Image::GeoOp* geoOp);
     void SyncHydraOp(HydraOp* hydraOp);
 
     void ClearNukePrims();
     void ClearHydraPrims();
     void ClearAll();
 
-    static uint32_t UpdateHashArray(const GeoOp* op, GeoOpHashArray& hashes);
+    static uint32_t UpdateHashArray(const DD::Image::GeoOp* op,
+                                    GeoOpHashArray& hashes);
     static HdDirtyBits DirtyBitsFromUpdateMask(uint32_t updateMask);
 
 protected:
-    void SyncNukeGeometry(GeometryList* geoList);
-    void SyncNukeLights(std::vector<LightContext*> lights);
+    void SyncNukeGeometry(DD::Image::GeometryList* geoList);
+    void SyncNukeLights(std::vector<DD::Image::LightContext*> lights);
 
-    void CreateOpGeo(GeoOp* geoOp, const SdfPath& subtree,
+    void CreateOpGeo(DD::Image::GeoOp* geoOp, const SdfPath& subtree,
                      const GeoInfoVector& geoInfos);
-    void UpdateOpGeo(GeoOp* geoOp, const SdfPath& subtree,
+    void UpdateOpGeo(DD::Image::GeoOp* geoOp, const SdfPath& subtree,
                      const GeoInfoVector& geoInfos);
 
     void ClearNukeGeo();
@@ -118,10 +117,10 @@ private:
 
     HdNukeDelegateConfig _config;
 
-    Scene _scene;
+    DD::Image::Scene _scene;
 
-    std::unordered_map<GeoOp*, SdfPath> _opSubtrees;
-    std::unordered_map<GeoOp*, GeoOpHashArray> _opStateHashes;
+    std::unordered_map<DD::Image::GeoOp*, SdfPath> _opSubtrees;
+    std::unordered_map<DD::Image::GeoOp*, GeoOpHashArray> _opStateHashes;
 
     SdfPathMap<HdNukeGeoAdapterPtr> _geoAdapters;
     SdfPathMap<HdNukeInstancerAdapterPtr> _instancerAdapters;

@@ -27,53 +27,51 @@
 #include <DDImage/Op.h>
 
 
-using namespace DD::Image;
-
 PXR_NAMESPACE_OPEN_SCOPE
 
 
-inline GfMatrix3f DDToGfMatrix3f(const Matrix3& nukeMatrix);
-inline GfMatrix4f DDToGfMatrix4f(const Matrix4& nukeMatrix);
-inline GfMatrix4d DDToGfMatrix4d(const Matrix4& nukeMatrix);
+inline GfMatrix3f DDToGfMatrix3f(const DD::Image::Matrix3& nukeMatrix);
+inline GfMatrix4f DDToGfMatrix4f(const DD::Image::Matrix4& nukeMatrix);
+inline GfMatrix4d DDToGfMatrix4d(const DD::Image::Matrix4& nukeMatrix);
 
-inline SdfPath GetPathFromOp(const Op* op);
+inline SdfPath GetPathFromOp(const DD::Image::Op* op);
 
 template <typename T>
-inline VtValue DDAttrToVtArrayValue(const Attribute& geoAttr);
+inline VtValue DDAttrToVtArrayValue(const DD::Image::Attribute& geoAttr);
 
 template <typename T>
 inline void ConvertHdBufferData(void* src, float* dest, size_t numPixels,
                                 size_t numComponents, bool packed);
 
-VtValue KnobToVtValue(const Knob* knob);
+VtValue KnobToVtValue(const DD::Image::Knob* knob);
 
 
 //
 // Definitions
 //
 
-inline GfMatrix3f DDToGfMatrix3f(const Matrix3& nukeMatrix)
+inline GfMatrix3f DDToGfMatrix3f(const DD::Image::Matrix3& nukeMatrix)
 {
     GfMatrix3f gfMatrix;
     std::copy(nukeMatrix.array(), nukeMatrix.array() + 9, gfMatrix.data());
     return gfMatrix;
 }
 
-inline GfMatrix4f DDToGfMatrix4f(const Matrix4& nukeMatrix)
+inline GfMatrix4f DDToGfMatrix4f(const DD::Image::Matrix4& nukeMatrix)
 {
     GfMatrix4f gfMatrix;
     std::copy(nukeMatrix.array(), nukeMatrix.array() + 16, gfMatrix.data());
     return gfMatrix;
 }
 
-inline GfMatrix4d DDToGfMatrix4d(const Matrix4& nukeMatrix)
+inline GfMatrix4d DDToGfMatrix4d(const DD::Image::Matrix4& nukeMatrix)
 {
     GfMatrix4d gfMatrix;
     std::copy(nukeMatrix.array(), nukeMatrix.array() + 16, gfMatrix.data());
     return gfMatrix;
 }
 
-inline SdfPath GetPathFromOp(const Op* op)
+inline SdfPath GetPathFromOp(const DD::Image::Op* op)
 {
     std::string tail(op->node_name());
     std::replace(tail.begin(), tail.end(), '.', '/');
@@ -82,7 +80,7 @@ inline SdfPath GetPathFromOp(const Op* op)
 
 template <typename T>
 inline VtValue
-DDAttrToVtArrayValue(const Attribute& geoAttr)
+DDAttrToVtArrayValue(const DD::Image::Attribute& geoAttr)
 {
     VtArray<T> array;
     const T* dataPtr = static_cast<const T*>(geoAttr.array());

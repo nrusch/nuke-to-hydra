@@ -29,12 +29,12 @@ PXR_NAMESPACE_OPEN_SCOPE
 class VtValueKnobCache
 {
 public:
-    bool RegisterKnob(Knob* knob, const TfToken& key);
-    bool RegisterKnob(Knob_Callback f, const TfToken& key);
+    bool RegisterKnob(DD::Image::Knob* knob, const TfToken& key);
+    bool RegisterKnob(DD::Image::Knob_Callback f, const TfToken& key);
 
     void PopulateValues(bool modifiedKnobsOnly = false);
 
-    bool OnKnobChanged(Knob* knob);
+    bool OnKnobChanged(DD::Image::Knob* knob);
 
     VtValue& GetValue(const TfToken& key);
 
@@ -43,7 +43,7 @@ public:
     void Clear();
 
 private:
-    std::unordered_map<Knob*, TfToken> _knobKeyMap;
+    std::unordered_map<DD::Image::Knob*, TfToken> _knobKeyMap;
     TfTokenMap<VtValue> _valueCache;
 };
 

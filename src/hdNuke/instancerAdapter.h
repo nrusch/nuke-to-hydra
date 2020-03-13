@@ -25,8 +25,6 @@
 #include "types.h"
 
 
-using namespace DD::Image;
-
 PXR_NAMESPACE_OPEN_SCOPE
 
 

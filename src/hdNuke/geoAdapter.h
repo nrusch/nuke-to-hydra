@@ -27,8 +27,6 @@
 #include "types.h"
 
 
-using namespace DD::Image;
-
 PXR_NAMESPACE_OPEN_SCOPE
 
 
@@ -37,7 +35,8 @@ class HdNukeGeoAdapter : public HdNukeAdapter
 public:
     HdNukeGeoAdapter(AdapterSharedState* statePtr);
 
-    void Update(const GeoInfo& geo, HdDirtyBits dirtyBits, bool isInstanced);
+    void Update(const DD::Image::GeoInfo& geo, HdDirtyBits dirtyBits,
+                bool isInstanced);
 
     inline GfRange3d GetExtent() const { return _extent; }
 
@@ -55,9 +54,9 @@ public:
     GetPrimvarDescriptors(HdInterpolation interpolation) const;
 
 private:
-    void _RebuildPointList(const GeoInfo& geo);
-    void _RebuildPrimvars(const GeoInfo& geo);
-    void _RebuildMeshTopology(const GeoInfo& geo);
+    void _RebuildPointList(const DD::Image::GeoInfo& geo);
+    void _RebuildPrimvars(const DD::Image::GeoInfo& geo);
+    void _RebuildMeshTopology(const DD::Image::GeoInfo& geo);
 
     template <typename T>
     inline void _StorePrimvarScalar(TfToken& key, const T& value) {

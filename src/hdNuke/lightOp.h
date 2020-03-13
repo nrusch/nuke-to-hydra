@@ -23,19 +23,17 @@
 #include "vtValueKnobCache.h"
 
 
-using namespace DD::Image;
-
 PXR_NAMESPACE_OPEN_SCOPE
 
 
-class HydraLightOp : public AxisOp, public HydraPrimOp
+class HydraLightOp : public DD::Image::AxisOp, public HydraPrimOp
 {
 public:
     HydraLightOp(Node* node,  const TfToken& primType)
-        : AxisOp(node), HydraPrimOp(), _primType(primType) { }
+        : DD::Image::AxisOp(node), HydraPrimOp(), _primType(primType) { }
 
-    void knobs(Knob_Callback f) override;
-    int knob_changed(Knob* k) override;
+    void knobs(DD::Image::Knob_Callback f) override;
+    int knob_changed(DD::Image::Knob* k) override;
 
     const TfToken& GetPrimTypeName() const override { return _primType; }
 
@@ -48,9 +46,10 @@ public:
     static const HdDirtyBits DefaultDirtyBits;
 
 protected:
-    virtual void MakeLightKnobs(Knob_Callback f);
+    virtual void MakeLightKnobs(DD::Image::Knob_Callback f);
 
-    inline bool RegisterLightParamKnob(Knob_Callback f, const TfToken& paramName);
+    inline bool RegisterLightParamKnob(DD::Image::Knob_Callback f,
+                                       const TfToken& paramName);
 
 private:
     const TfToken& _primType;
@@ -74,7 +73,8 @@ private:
 
 
 bool
-HydraLightOp::RegisterLightParamKnob(Knob_Callback f, const TfToken& paramName)
+HydraLightOp::RegisterLightParamKnob(DD::Image::Knob_Callback f,
+                                     const TfToken& paramName)
 {
     return _paramKnobCache.RegisterKnob(f, paramName);
 }

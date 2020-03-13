@@ -24,21 +24,20 @@
 #include "adapter.h"
 
 
-using namespace DD::Image;
-
 PXR_NAMESPACE_OPEN_SCOPE
 
 
 class HdNukeLightAdapter : public HdNukeAdapter
 {
 public:
-    HdNukeLightAdapter(AdapterSharedState* statePtr, const LightOp* lightOp,
+    HdNukeLightAdapter(AdapterSharedState* statePtr,
+                       const DD::Image::LightOp* lightOp,
                        const TfToken& lightType);
 
-    const LightOp* GetLightOp() const { return _light; }
+    const DD::Image::LightOp* GetLightOp() const { return _light; }
     const TfToken& GetLightType() const { return _lightType; }
 
-    const Hash& GetLastHash() const { return _lastHash; }
+    const DD::Image::Hash& GetLastHash() const { return _lastHash; }
     inline void UpdateLastHash() { _lastHash = _light->hash(); }
     inline bool DirtyHash() const { return _lastHash != _light->hash(); }
 
@@ -49,9 +48,9 @@ public:
     static const HdDirtyBits DefaultDirtyBits;
 
 private:
-    const LightOp* _light;
+    const DD::Image::LightOp* _light;
     TfToken _lightType;
-    Hash _lastHash;
+    DD::Image::Hash _lastHash;
 };
 
 using HdNukeLightAdapterPtr = std::shared_ptr<HdNukeLightAdapter>;

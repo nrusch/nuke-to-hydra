@@ -24,9 +24,6 @@
 #include <DDImage/Knobs.h>
 
 
-using namespace DD::Image;
-
-
 PXR_NAMESPACE_OPEN_SCOPE
 
 
@@ -62,8 +59,10 @@ private:
 class HdNukeKnobFactory
 {
 public:
-    Knob* VtValueKnob(Knob_Callback f, const std::string& name,
-                      const std::string& label, const VtValue& value);
+    DD::Image::Knob* VtValueKnob(DD::Image::Knob_Callback f,
+                                 const std::string& name,
+                                 const std::string& label,
+                                 const VtValue& value);
 
     void FreeDynamicKnobStorage();
 

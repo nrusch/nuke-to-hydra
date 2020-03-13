@@ -8,15 +8,12 @@
 #include <DDImage/GeoInfo.h>
 
 
-using namespace DD::Image;
-
-
 namespace std
 {
     template<>
-    struct hash<Hash>
+    struct hash<DD::Image::Hash>
     {
-        size_t operator()(const Hash& h) const
+        size_t operator()(const DD::Image::Hash& h) const
         {
             return h.value();
         }
@@ -27,8 +24,8 @@ namespace std
 PXR_NAMESPACE_OPEN_SCOPE
 
 
-using GeoOpHashArray = std::array<Hash, Group_Last>;
-using GeoInfoVector = std::vector<const GeoInfo*>;
+using GeoOpHashArray = std::array<DD::Image::Hash, DD::Image::Group_Last>;
+using GeoInfoVector = std::vector<const DD::Image::GeoInfo*>;
 
 template <typename T>
 using SdfPathMap = std::unordered_map<SdfPath, T, SdfPath::Hash>;
