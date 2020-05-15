@@ -17,7 +17,7 @@ add_library(${HDNUKE_LIB_NAME} SHARED
 target_include_directories(${HDNUKE_LIB_NAME}
     PRIVATE
     ${NUKE_INCLUDE_DIRS}
-    ${USD_ROOT}/include)
+    ${USD_INCLUDE_DIR})
 
 target_link_libraries(${HDNUKE_LIB_NAME}
     ${NUKE_DDIMAGE_LIBRARY}

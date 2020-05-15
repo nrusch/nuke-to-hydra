@@ -40,7 +40,7 @@ a pain.
 At any rate, if you want to build and test the project, you'll need the
 following:
 
-- GCC 4.8.5
+- GCC 4.8.5+
 - CMake 3.0+
 - Nuke
     - I started developing this against 11.2, but I imagine earlier versions
@@ -50,18 +50,30 @@ following:
     to stay reasonably current as Hydra continues to mature, so I'll
     occasionally jump ahead to a newer cut of the USD dev branch (see above note
     about project volatility).
+- Some of the USD dependencies (for headers)
+    - Boost Python (including headers)
+    - Python
+    - TBB
 
-After that, building is pretty simple:
+After that, building should be pretty simple:
 
 ```
 cmake \
 -D CMAKE_INSTALL_PREFIX=<YOUR_INSTALL_PREFIX> \
 -D Nuke_ROOT=<YOUR_NUKE_INSTALL_ROOT> \
--D USD_ROOT=<YOUR_USD_INSTALL_ROOT> \
+-D PXR_USD_LOCATION=<YOUR_USD_INSTALL_ROOT> \
 <SOURCE_DIR>
 
 make -j 4 install
 ```
+
+If you need to specify where some of the USD dependencies are located, or if
+they are not being found properly, try setting some of these CMake variables as
+needed:
+
+- `TBB_ROOT_DIR`
+- `BOOST_ROOT`
+- `CMAKE_PREFIX_PATH`
 
 ## Testing
 

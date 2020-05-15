@@ -16,7 +16,7 @@ function(add_hdnuke_op PLUGIN_NAME)
         PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/.."
         ${NUKE_INCLUDE_DIRS}
-        ${USD_ROOT}/include)
+        ${USD_INCLUDE_DIR})
 
     target_link_libraries(${PLUGIN_NAME}
         ${HDNUKE_LIB_NAME}
