@@ -40,6 +40,45 @@ HydraOpManager::AddLight(HydraPrimOp* op)
     }
 }
 
+UsdImagingDelegate*
+HydraOpManager::GetUsdDelegate(const SdfPath& delegateId)
+{
+    auto it = _delegate->_usdDelegates.find(delegateId);
+    if (it != _delegate->_usdDelegates.end()) {
+        _activeUsdDelegateIds.insert(delegateId);
+        return it->second.get();
+    }
+    return nullptr;
+}
+
+UsdImagingDelegate*
+HydraOpManager::CreateUsdDelegate(const SdfPath& delegateId)
+{
+    // Note that this currently unconditionally deletes any previously existing
+    // delegate matching the given ID.
+    UsdImagingDelegate* usdDelegate = new UsdImagingDelegate(
+        &_delegate->GetRenderIndex(), delegateId);
+    auto it = _delegate->_usdDelegates.find(delegateId);
+    if (it != _delegate->_usdDelegates.end()) {
+        it->second.reset(usdDelegate);
+    }
+    else {
+        std::unique_ptr<UsdImagingDelegate> usdDelegatePtr(usdDelegate);
+        _delegate->_usdDelegates.emplace(delegateId, std::move(usdDelegatePtr));
+    }
+    _activeUsdDelegateIds.insert(delegateId);
+    return usdDelegate;
+}
+
+void
+HydraOpManager::RemoveUsdDelegate(const SdfPath& delegateId)
+{
+    // The unique_ptr value type takes care of cleaning up the delegate, which
+    // in turn removes its own subtree from the render index on deletion.
+    _delegate->_usdDelegates.erase(delegateId);
+    _activeUsdDelegateIds.erase(delegateId);
+}
+
 void
 HydraOpManager::UpdateIndex(HydraOp* op)
 {
@@ -47,16 +86,32 @@ HydraOpManager::UpdateIndex(HydraOp* op)
 
     HdRenderIndex& renderIndex = _delegate->GetRenderIndex();
 
-    const auto curMapEnd = _delegate->_hydraLightOps.end();
-    const auto newMapEnd = _lightOps.end();
-    for (auto it = _delegate->_hydraLightOps.begin(); it != curMapEnd; it++)
+    // TODO: It would be nice to have a more pluggable way of handling pruning.
+
+    // Prune prims for disconnected light ops
+    const auto curLightMapEnd = _delegate->_hydraLightOps.end();
+    const auto newLightMapEnd = _lightOps.end();
+    for (auto it = _delegate->_hydraLightOps.begin(); it != curLightMapEnd; it++)
     {
-        if (_lightOps.find(it->first) == newMapEnd) {
+        if (_lightOps.find(it->first) == newLightMapEnd) {
             renderIndex.RemoveSprim(it->second->GetPrimTypeName(), it->first);
         }
     }
 
     _lightOps.swap(_delegate->_hydraLightOps);
+
+    // Prune UsdImagingDelegates for disconnected stage ops
+    const auto curDelegateMapEnd = _delegate->_usdDelegates.end();
+    const auto activeDelegateIdsEnd = _activeUsdDelegateIds.end();
+    for (auto it = _delegate->_usdDelegates.begin(); it != curDelegateMapEnd; )
+    {
+        if (_activeUsdDelegateIds.find(it->first) == activeDelegateIdsEnd) {
+            it = _delegate->_usdDelegates.erase(it);
+        }
+        else {
+            it++;
+        }
+    }
 }
 
 

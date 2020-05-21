@@ -19,6 +19,8 @@
 
 #include <pxr/imaging/hd/sceneDelegate.h>
 
+#include <pxr/usdImaging/usdImaging/delegate.h>
+
 #include <DDImage/GeoOp.h>
 #include <DDImage/Scene.h>
 
@@ -127,6 +129,7 @@ private:
     SdfPathMap<HdNukeLightAdapterPtr> _lightAdapters;
 
     SdfPathMap<HydraLightOp*> _hydraLightOps;
+    SdfPathMap<std::unique_ptr<UsdImagingDelegate>> _usdDelegates;
 
     AdapterSharedState sharedState;
     SdfPath _defaultMaterialId;

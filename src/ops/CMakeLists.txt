@@ -41,6 +41,7 @@ add_definitions(-DUSE_GLEW)
 set(HDNUKE_OPS
     HydraRender
     HydraScene
+    HydraUSDStage
     # Lights
     HydraCylinderLight
     HydraDiskLight

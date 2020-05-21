@@ -29,6 +29,10 @@ class HydraOpManager
 public:
     void AddLight(HydraPrimOp* op);
 
+    UsdImagingDelegate* GetUsdDelegate(const SdfPath& delegateId);
+    UsdImagingDelegate* CreateUsdDelegate(const SdfPath& delegateId);
+    void RemoveUsdDelegate(const SdfPath& delegateId);
+
 private:
     friend class HdNukeSceneDelegate;
 
@@ -53,6 +57,7 @@ private:
     HdNukeSceneDelegate* _delegate;
 
     SdfPathMap<HydraLightOp*> _lightOps;
+    std::unordered_set<SdfPath, SdfPath::Hash> _activeUsdDelegateIds;
 };
 
 
@@ -86,7 +91,7 @@ bool HydraOpManager::_InsertPrimOp(OP_TYPE* op, const SdfPath& primId,
 
     op = static_cast<OP_TYPE*>(op->firstOp());
 
-    auto insertResult = newOpMap.insert(std::make_pair(primId, op));
+    auto insertResult = newOpMap.emplace(primId, op);
     if (ARCH_UNLIKELY(not insertResult.second)) {
         TF_CODING_ERROR("HydraOpManager::_InsertPrimOp : More than one op maps "
                         "to prim ID %s - ignoring duplicates",
