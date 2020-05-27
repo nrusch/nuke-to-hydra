@@ -36,13 +36,13 @@ private:
 
     void UpdateIndex(HydraOp* op);
 
-    template<class OP_TYPE>
+    template <class OP_TYPE>
     SdfPath MakeGeometryId(OP_TYPE* op) const;
 
-    template<class OP_TYPE>
+    template <class OP_TYPE>
     SdfPath MakeLightId(OP_TYPE* op) const;
 
-    template<class OP_TYPE>
+    template <class OP_TYPE>
     SdfPath MakeMaterialId(OP_TYPE* op) const;
 
     template <class OP_TYPE>
@@ -56,21 +56,21 @@ private:
 };
 
 
-template<class OP_TYPE>
+template <class OP_TYPE>
 SdfPath
 HydraOpManager::MakeGeometryId(OP_TYPE* op) const
 {
     return _delegate->GetConfig().GeoRoot().AppendPath(GetPathFromOp(op));
 }
 
-template<class OP_TYPE>
+template <class OP_TYPE>
 SdfPath
 HydraOpManager::MakeLightId(OP_TYPE* op) const
 {
     return _delegate->GetConfig().HydraLightRoot().AppendPath(GetPathFromOp(op));
 }
 
-template<class OP_TYPE>
+template <class OP_TYPE>
 SdfPath
 HydraOpManager::MakeMaterialId(OP_TYPE* op) const
 {
