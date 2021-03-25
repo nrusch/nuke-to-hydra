@@ -3,6 +3,21 @@
 This project implements a Hydra scene delegate for Nuke's 3D system, as well as
 ops to facilitate rendering 3D scenes using available Hydra render delegates.
 
+## A Note About Nuke 13
+
+The scene delegate implementation in this project was adopted by Foundry to
+underpin the [Hydra Viewer in Nuke 13](
+https://learn.foundry.com/nuke/content/release_notes/nuke_13.0.html), which is
+a big part of why this repo has been quiet for so long. I'm not sure where
+things will go from here, but I hope to be able to collaborate with them more
+in the future, in order to port and implement other features and goals from this
+project into Nuke, such as switchable render delegate support, the renderer op,
+USD stage side-loading, SDR support, etc.
+
+Ultimately, the goal of this project was always to try and move the needle on
+getting a more modern 3D system into Nuke, and I see this as a promising first
+step. :)
+
 **WARNING**: This project is in a fairly volatile state. I'm not totally
 satisfied with various aspects of the design, and there are a lot of things that
 still need to be implemented, so please don't rely on anything remaining the way
@@ -42,9 +57,7 @@ following:
 
 - GCC 4.8.5+
 - CMake 3.0+
-- Nuke
-    - I started developing this against 11.2, but I imagine earlier versions
-    would work as well, since the 3D API hasn't really changed.
+- Nuke 11.3+
 - USD 20.02+
     - I'm not trying to support multiple USD versions at this point, and I want
     to stay reasonably current as Hydra continues to mature, so I'll
